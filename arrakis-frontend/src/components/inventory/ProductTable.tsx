@@ -1,9 +1,9 @@
 import React from 'react'
-import { Table, Tag, Typography } from 'antd'
+import { Table, Tag, Typography, Switch } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import { PictureOutlined } from '@ant-design/icons'
+import { PictureOutlined, AlertOutlined } from '@ant-design/icons'
 import { useQuery } from '@tanstack/react-query'
-import { fetchProducts } from '../../api/inventory'
+import { fetchProducts, fetchMetrics } from '../../api/inventory'
 import { useInventoryStore } from '../../store/useInventoryStore'
 import { ProductResponse } from '../../types/inventory'
 
@@ -14,12 +14,19 @@ export const ProductTable: React.FC = () => {
   const setPage = useInventoryStore((state) => state.setPage)
   const locationId = useInventoryStore((state) => state.locationId)
   const threshold = useInventoryStore((state) => state.threshold)
+  const lowStockOnly = useInventoryStore((state) => state.lowStockOnly)
+  const setLowStockOnly = useInventoryStore((state) => state.setLowStockOnly)
   const setSelectedProduct = useInventoryStore((state) => state.setSelectedProduct)
   const setIsVariantModalOpen = useInventoryStore((state) => state.setIsVariantModalOpen)
 
+  const { data: metrics } = useQuery({
+    queryKey: ['metrics', locationId, threshold],
+    queryFn: () => fetchMetrics(locationId, threshold),
+  })
+
   const { data: productPage, isLoading } = useQuery({
-    queryKey: ['products', page, locationId, threshold],
-    queryFn: () => fetchProducts(page, locationId, threshold),
+    queryKey: ['products', page, locationId, threshold, lowStockOnly],
+    queryFn: () => fetchProducts(page, locationId, threshold, lowStockOnly),
   })
 
   const getStatusTag = (status?: string) => {
@@ -130,7 +137,7 @@ export const ProductTable: React.FC = () => {
 
         let text = `${count} in stock`
         if (variantCount > 1) {
-          text = `${count} in stock (${variantCount} variants)`
+          text = `${count} in stock for ${variantCount} variants`
         }
 
         return (
@@ -168,33 +175,85 @@ export const ProductTable: React.FC = () => {
     },
   ]
 
+  const lowCount = metrics?.lowStockCount ?? 0
+
   return (
-    <Table<ProductResponse>
-      rowKey="id"
-      columns={columns}
-      dataSource={productPage?.content || []}
-      loading={isLoading}
-      scroll={{ x: 'max-content' }}
-      onRow={(record) => ({
-        onClick: () => {
-          setSelectedProduct(record)
-          setIsVariantModalOpen(true)
-        },
-        style: { cursor: 'pointer' },
-      })}
-      pagination={{
-        current: page + 1,
-        pageSize: 10,
-        total: productPage?.totalElements || 0,
-        onChange: (p) => setPage(p - 1),
-        showSizeChanger: false,
-      }}
-      bordered={false}
-      style={{
-        backgroundColor: '#ffffff',
-        borderRadius: 8,
-        border: '1px solid #e1e3e5',
-      }}
-    />
+    <div>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          backgroundColor: '#ffffff',
+          padding: '12px 16px',
+          borderRadius: 8,
+          border: '1px solid #e1e3e5',
+          marginBottom: 16,
+          flexWrap: 'wrap',
+          gap: 12,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Tag
+            icon={<AlertOutlined />}
+            style={{
+              backgroundColor: lowCount > 0 ? '#fed3d1' : '#e4e5e7',
+              color: lowCount > 0 ? '#d72c0d' : '#4a4a4a',
+              border: 'none',
+              borderRadius: 14,
+              padding: '2px 10px',
+              fontWeight: 600,
+              fontSize: 12,
+            }}
+          >
+            {lowCount} Low Stock {lowCount === 1 ? 'Alert' : 'Alerts'}
+          </Tag>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            Threshold: &lt; {threshold}
+          </Text>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Text style={{ fontSize: 13, fontWeight: 500, color: '#202223' }}>
+            Show Low Stock Only
+          </Text>
+          <Switch
+            checked={lowStockOnly}
+            onChange={(checked) => setLowStockOnly(checked)}
+            style={{
+              backgroundColor: lowStockOnly ? '#008060' : undefined,
+            }}
+          />
+        </div>
+      </div>
+
+      <Table<ProductResponse>
+        rowKey="id"
+        columns={columns}
+        dataSource={productPage?.content || []}
+        loading={isLoading}
+        scroll={{ x: 'max-content' }}
+        onRow={(record) => ({
+          onClick: () => {
+            setSelectedProduct(record)
+            setIsVariantModalOpen(true)
+          },
+          style: { cursor: 'pointer' },
+        })}
+        pagination={{
+          current: page + 1,
+          pageSize: 10,
+          total: productPage?.totalElements || 0,
+          onChange: (p) => setPage(p - 1),
+          showSizeChanger: false,
+        }}
+        bordered={false}
+        style={{
+          backgroundColor: '#ffffff',
+          borderRadius: 8,
+          border: '1px solid #e1e3e5',
+        }}
+      />
+    </div>
   )
 }

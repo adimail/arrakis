@@ -34,10 +34,29 @@ public class InventoryController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "ALL") String locationId,
-            @RequestParam(defaultValue = "10") int threshold
+            @RequestParam(required = false) Integer threshold,
+            @RequestParam(defaultValue = "false") boolean lowStockOnly
     ) {
-        Page<ProductResponse> products = inventoryService.getProducts(page, size, locationId, threshold);
+        Page<ProductResponse> products = inventoryService.getProducts(page, size, locationId, threshold, lowStockOnly);
         return ResponseEntity.ok(products);
+    }
+
+    @GetMapping("/metrics")
+    public ResponseEntity<Map<String, Object>> getMetrics(
+            @RequestParam(defaultValue = "ALL") String locationId,
+            @RequestParam(required = false) Integer threshold
+    ) {
+        return ResponseEntity.ok(inventoryService.getInventoryMetrics(locationId, threshold));
+    }
+
+    @PutMapping("/variants/threshold")
+    public ResponseEntity<ProductResponse.VariantResponse> updateVariantThreshold(
+            @RequestParam String variantId,
+            @RequestBody Map<String, Integer> request
+    ) {
+        Integer threshold = request.get("threshold");
+        ProductResponse.VariantResponse response = inventoryService.updateVariantThreshold(variantId, threshold);
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/locations")

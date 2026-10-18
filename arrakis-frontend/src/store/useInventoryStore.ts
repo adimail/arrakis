@@ -14,6 +14,9 @@ interface InventoryState {
   threshold: number
   setThreshold: (threshold: number) => void
 
+  lowStockOnly: boolean
+  setLowStockOnly: (val: boolean) => void
+
   lastSynced: string | null
   setLastSynced: (timestamp: string) => void
 
@@ -39,6 +42,9 @@ export const useInventoryStore = create<InventoryState>((set) => ({
 
   threshold: 10,
   setThreshold: (threshold) => set({ threshold }),
+
+  lowStockOnly: false,
+  setLowStockOnly: (lowStockOnly) => set({ lowStockOnly, page: 0 }),
 
   lastSynced: localStorage.getItem('last_synced_at'),
   setLastSynced: (lastSynced) => {

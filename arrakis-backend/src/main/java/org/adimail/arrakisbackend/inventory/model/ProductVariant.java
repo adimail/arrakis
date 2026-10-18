@@ -1,9 +1,7 @@
 package org.adimail.arrakisbackend.inventory.model;
 
 import jakarta.persistence.*;
-import java.util.ArrayList;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Set;
 
 @Entity
@@ -18,6 +16,9 @@ public class ProductVariant {
 
     private String sku;
     private String price;
+
+    @Column(name = "alert_threshold")
+    private Integer alertThreshold;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id", nullable = false)
@@ -51,6 +52,9 @@ public class ProductVariant {
 
     public String getPrice() { return price; }
     public void setPrice(String price) { this.price = price; }
+
+    public Integer getAlertThreshold() { return alertThreshold; }
+    public void setAlertThreshold(Integer alertThreshold) { this.alertThreshold = alertThreshold; }
 
     public Product getProduct() { return product; }
     public void setProduct(Product product) { this.product = product; }

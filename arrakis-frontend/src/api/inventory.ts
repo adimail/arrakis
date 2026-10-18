@@ -1,20 +1,35 @@
-import { LocationItem, PageProductResponse } from '../types/inventory'
+import { LocationItem, PageProductResponse, VariantResponse } from '../types/inventory'
 
 const BASE_URL = 'http://localhost:8080/api'
 
 export async function fetchProducts(
   page: number,
   locationId: string,
-  threshold: number
+  threshold: number,
+  lowStockOnly: boolean = false
 ): Promise<PageProductResponse> {
   const params = new URLSearchParams({
     page: page.toString(),
     size: '10',
     locationId,
     threshold: threshold.toString(),
+    lowStockOnly: lowStockOnly.toString(),
   })
   const res = await fetch(`${BASE_URL}/products?${params}`)
   if (!res.ok) throw new Error('Failed to load products')
+  return res.json()
+}
+
+export async function fetchMetrics(
+  locationId: string,
+  threshold: number
+): Promise<{ lowStockCount: number; threshold: number }> {
+  const params = new URLSearchParams({
+    locationId,
+    threshold: threshold.toString(),
+  })
+  const res = await fetch(`${BASE_URL}/metrics?${params}`)
+  if (!res.ok) throw new Error('Failed to load metrics')
   return res.json()
 }
 
@@ -43,5 +58,19 @@ export async function updateSettings(threshold: number): Promise<{ threshold: nu
     body: JSON.stringify({ threshold }),
   })
   if (!res.ok) throw new Error('Failed to save settings')
+  return res.json()
+}
+
+export async function updateVariantThreshold(
+  variantId: string,
+  threshold: number | null
+): Promise<VariantResponse> {
+  const params = new URLSearchParams({ variantId })
+  const res = await fetch(`${BASE_URL}/variants/threshold?${params}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ threshold }),
+  })
+  if (!res.ok) throw new Error('Failed to update variant threshold')
   return res.json()
 }

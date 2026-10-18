@@ -1,16 +1,54 @@
-import React from 'react'
-import { Modal, Table, Button, Typography } from 'antd'
+import React, { useState, useEffect } from 'react'
+import { Modal, Table, Button, Typography, InputNumber, message } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { updateVariantThreshold } from '../../api/inventory'
 import { useInventoryStore } from '../../store/useInventoryStore'
 import { VariantResponse } from '../../types/inventory'
 
 const { Text } = Typography
 
 export const VariantModal: React.FC = () => {
+  const queryClient = useQueryClient()
   const product = useInventoryStore((state) => state.selectedProduct)
   const visible = useInventoryStore((state) => state.isVariantModalOpen)
   const setIsVariantModalOpen = useInventoryStore((state) => state.setIsVariantModalOpen)
-  const threshold = useInventoryStore((state) => state.threshold)
+  const globalThreshold = useInventoryStore((state) => state.threshold)
+
+  const [thresholdDrafts, setThresholdDrafts] = useState<Record<string, number | null>>({})
+
+  useEffect(() => {
+    if (product?.variants) {
+      const drafts: Record<string, number | null> = {}
+      for (const v of product.variants) {
+        drafts[v.id] = v.alertThreshold ?? null
+      }
+      setThresholdDrafts(drafts)
+    }
+  }, [product])
+
+  const mutation = useMutation({
+    mutationFn: ({ variantId, threshold }: { variantId: string; threshold: number | null }) =>
+      updateVariantThreshold(variantId, threshold),
+    onSuccess: (updatedVariant) => {
+      message.success('Variant threshold updated')
+      queryClient.invalidateQueries({ queryKey: ['products'] })
+      if (product) {
+        const nextVariants = product.variants.map((v) =>
+          v.id === updatedVariant.id ? { ...v, ...updatedVariant } : v
+        )
+        const hasLow = nextVariants.some((v) => v.isLowInventory)
+        useInventoryStore.getState().setSelectedProduct({
+          ...product,
+          isLowInventory: hasLow || product.totalInventory < globalThreshold,
+          variants: nextVariants,
+        })
+      }
+    },
+    onError: () => {
+      message.error('Failed to update variant threshold')
+    },
+  })
 
   const handleClose = () => {
     setIsVariantModalOpen(false)
@@ -18,7 +56,7 @@ export const VariantModal: React.FC = () => {
 
   const columns: ColumnsType<VariantResponse> = [
     {
-      title: 'Product',
+      title: 'Variant',
       dataIndex: 'title',
       key: 'title',
       render: (title: string) => (
@@ -47,8 +85,8 @@ export const VariantModal: React.FC = () => {
       title: 'Inventory',
       dataIndex: 'inventoryQuantity',
       key: 'inventoryQuantity',
-      render: (qty: number) => {
-        const isLow = qty < threshold
+      render: (qty: number, record: VariantResponse) => {
+        const isLow = record.isLowInventory
         return (
           <span
             style={{
@@ -59,6 +97,52 @@ export const VariantModal: React.FC = () => {
           >
             {qty} in stock
           </span>
+        )
+      },
+    },
+    {
+      title: 'Custom Alert Threshold',
+      key: 'alertThreshold',
+      render: (_, record: VariantResponse) => {
+        const draftVal = thresholdDrafts[record.id]
+        const hasChanged = draftVal !== (record.alertThreshold ?? null)
+
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <InputNumber
+              placeholder={`Global (${globalThreshold})`}
+              min={0}
+              max={10000}
+              value={draftVal}
+              onChange={(val) =>
+                setThresholdDrafts((prev) => ({
+                  ...prev,
+                  [record.id]: val === undefined ? null : val,
+                }))
+              }
+              style={{ width: 130 }}
+            />
+            {hasChanged && (
+              <Button
+                size="small"
+                type="primary"
+                loading={mutation.isPending}
+                onClick={() =>
+                  mutation.mutate({
+                    variantId: record.id,
+                    threshold: draftVal ?? null,
+                  })
+                }
+                style={{
+                  backgroundColor: '#008060',
+                  borderColor: '#008060',
+                  fontWeight: 500,
+                }}
+              >
+                Apply
+              </Button>
+            )}
+          </div>
         )
       },
     },
@@ -83,7 +167,7 @@ export const VariantModal: React.FC = () => {
           Close
         </Button>,
       ]}
-      width={700}
+      width={780}
     >
       <div style={{ padding: '8px 0 16px 0' }}>
         <Text type="secondary" style={{ fontSize: 13 }}>
