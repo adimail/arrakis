@@ -57,14 +57,14 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         PageProductResponse: {
-            /** Format: int32 */
-            totalPages?: number;
             /** Format: int64 */
             totalElements?: number;
             /** Format: int32 */
-            numberOfElements?: number;
+            totalPages?: number;
             sort?: components["schemas"]["SortObject"];
             pageable?: components["schemas"]["PageableObject"];
+            /** Format: int32 */
+            numberOfElements?: number;
             first?: boolean;
             last?: boolean;
             /** Format: int32 */

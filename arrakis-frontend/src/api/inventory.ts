@@ -24,7 +24,7 @@ export async function fetchLocations(): Promise<LocationItem[]> {
   return res.json()
 }
 
-export async function syncInventory(): Promise<{ message: string; syncedProductsCount: number }> {
+export async function syncInventory(): Promise<{ message: string; syncedProductsCount: number; syncedAt?: string }> {
   const res = await fetch(`${BASE_URL}/sync`, { method: 'POST' })
   if (!res.ok) throw new Error('Sync failed')
   return res.json()

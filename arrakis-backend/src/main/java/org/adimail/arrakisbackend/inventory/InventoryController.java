@@ -5,6 +5,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
@@ -23,7 +24,8 @@ public class InventoryController {
         int count = inventoryService.syncFromShopify();
         return ResponseEntity.ok(Map.of(
                 "message", "Inventory sync completed",
-                "syncedProductsCount", count
+                "syncedProductsCount", count,
+                "syncedAt", Instant.now().toString()
         ));
     }
 

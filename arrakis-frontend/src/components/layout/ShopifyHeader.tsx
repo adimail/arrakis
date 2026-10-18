@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
-import { Select, Avatar, Typography, ConfigProvider, theme } from 'antd'
+import { Select, Avatar, Typography, ConfigProvider, theme, Button } from 'antd'
+import { SyncOutlined } from '@ant-design/icons'
 import { LocationItem } from '../../types/inventory'
 
 const { Text } = Typography
@@ -8,12 +9,16 @@ interface ShopifyHeaderProps {
   locations: LocationItem[]
   selectedLocation: string
   onLocationChange: (val: string) => void
+  onOpenSync: () => void
+  isSyncing: boolean
 }
 
 export const ShopifyHeader: React.FC<ShopifyHeaderProps> = ({
   locations,
   selectedLocation,
   onLocationChange,
+  onOpenSync,
+  isSyncing,
 }) => {
   const [imgError, setImgError] = useState(false)
 
@@ -106,44 +111,55 @@ export const ShopifyHeader: React.FC<ShopifyHeaderProps> = ({
           </Text>
         </div>
 
-        <div
-          className="shopify-header-right"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            backgroundColor: '#262626',
-            borderRadius: 22,
-            padding: '3px 12px 3px 6px',
-            gap: 6,
-            border: '1px solid #363636',
-            position: 'relative',
-          }}
-        >
-          <Avatar
-            size={28}
-            className="shopify-header-avatar"
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Button
+            className="shopify-header-sync-btn"
+            icon={<SyncOutlined spin={isSyncing} />}
+            onClick={onOpenSync}
+          >
+            <span className="shopify-header-sync-text">Sync</span>
+          </Button>
+
+          <div
+            className="shopify-header-right"
             style={{
-              backgroundColor: '#b85d77',
-              color: '#ffffff',
-              fontSize: 11,
-              fontWeight: 700,
-              flexShrink: 0,
-              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              backgroundColor: '#262626',
+              borderRadius: 22,
+              padding: '3px 12px 3px 6px',
+              gap: 6,
+              border: '1px solid #363636',
+              position: 'relative',
             }}
           >
-            {getInitials(selectedLocationName)}
-          </Avatar>
+            <Avatar
+              size={28}
+              className="shopify-header-avatar"
+              style={{
+                backgroundColor: '#b85d77',
+                color: '#ffffff',
+                fontSize: 11,
+                fontWeight: 700,
+                flexShrink: 0,
+                cursor: 'pointer',
+              }}
+            >
+              {getInitials(selectedLocationName)}
+            </Avatar>
 
-          <Select
-            variant="borderless"
-            className="shopify-header-location-select"
-            value={selectedLocation}
-            onChange={onLocationChange}
-            options={locationOptions}
-            size="small"
-            style={{ minWidth: 160 }}
-            popupMatchSelectWidth={false}
-          />
+            <Select
+              variant="borderless"
+              className="shopify-header-location-select"
+              value={selectedLocation}
+              onChange={onLocationChange}
+              options={locationOptions}
+              size="small"
+              style={{ minWidth: 160 }}
+              popupMatchSelectWidth={false}
+              dropdownStyle={{ minWidth: 220 }}
+            />
+          </div>
         </div>
       </header>
     </ConfigProvider>
