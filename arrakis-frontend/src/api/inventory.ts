@@ -1,4 +1,4 @@
-import { LocationItem, PageResponse, ProductResponse } from '../types/inventory'
+import { LocationItem, PageProductResponse } from '../types/inventory'
 
 const BASE_URL = 'http://localhost:8080/api'
 
@@ -6,7 +6,7 @@ export async function fetchProducts(
   page: number,
   locationId: string,
   threshold: number
-): Promise<PageResponse<ProductResponse>> {
+): Promise<PageProductResponse> {
   const params = new URLSearchParams({
     page: page.toString(),
     size: '10',

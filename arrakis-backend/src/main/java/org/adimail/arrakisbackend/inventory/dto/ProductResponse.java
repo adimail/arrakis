@@ -8,6 +8,7 @@ public record ProductResponse(
         String vendor,
         String productType,
         String status,
+        String imageUrl,
         int totalInventory,
         boolean isLowInventory,
         List<VariantResponse> variants

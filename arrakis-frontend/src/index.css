@@ -10,3 +10,108 @@ body {
   color: #202223;
   -webkit-font-smoothing: antialiased;
 }
+
+.shopify-header-location-select.ant-select .ant-select-selector {
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  background-color: transparent !important;
+  padding: 0 4px !important;
+}
+
+.shopify-header-location-select.ant-select-focused .ant-select-selector,
+.shopify-header-location-select.ant-select .ant-select-selector:focus,
+.shopify-header-location-select.ant-select .ant-select-selector:hover {
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.shopify-header-location-select .ant-select-selection-item {
+  color: #ffffff !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+}
+
+.shopify-header-location-select .ant-select-arrow {
+  color: #8c9196 !important;
+}
+
+@media (max-width: 768px) {
+  .shopify-app-layout {
+    flex-direction: column !important;
+  }
+
+  .shopify-sidebar {
+    width: 100% !important;
+    height: auto !important;
+    min-height: unset !important;
+    position: static !important;
+    border-right: none !important;
+    border-bottom: 1px solid #e1e3e5 !important;
+    flex-direction: row !important;
+    padding: 8px 12px !important;
+  }
+
+  .shopify-sidebar-nav {
+    flex-direction: row !important;
+    width: 100% !important;
+    gap: 8px !important;
+  }
+
+  .shopify-sidebar-btn {
+    justify-content: center !important;
+    flex: 1 !important;
+  }
+
+  .shopify-main-content {
+    padding: 16px 12px !important;
+  }
+
+  /* Single-line sleek header on mobile */
+  .shopify-header {
+    height: 52px !important;
+    min-height: 52px !important;
+    padding: 0 16px !important;
+    flex-wrap: nowrap !important;
+  }
+
+  /* Render only the initials circle */
+  .shopify-header-right {
+    width: 32px !important;
+    height: 32px !important;
+    background-color: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    position: relative !important;
+    justify-content: center !important;
+  }
+
+  .shopify-header-avatar {
+    width: 32px !important;
+    height: 32px !important;
+    line-height: 32px !important;
+    font-size: 12px !important;
+  }
+
+  /* Invisible overlay so tapping the circle opens the location dropdown */
+  .shopify-header-location-select {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-width: unset !important;
+    opacity: 0 !important;
+    cursor: pointer !important;
+    z-index: 2 !important;
+  }
+
+  .inventory-toolbar {
+    margin-bottom: 12px !important;
+  }
+
+  .inventory-toolbar .ant-btn {
+    width: 100% !important;
+  }
+}

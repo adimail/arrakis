@@ -1,29 +1,8 @@
-export interface VariantResponse {
-  id: string
-  title: string
-  sku: string
-  price: string
-  inventoryQuantity: number
-}
+import { components } from './api-schema'
 
-export interface ProductResponse {
-  id: string
-  title: string
-  vendor: string
-  productType: string
-  status: string
-  totalInventory: number
-  isLowInventory: boolean
-  variants: VariantResponse[]
-}
-
-export interface PageResponse<T> {
-  content: T[]
-  totalPages: number
-  totalElements: number
-  size: number
-  number: number
-}
+export type ProductResponse = components['schemas']['ProductResponse']
+export type VariantResponse = components['schemas']['VariantResponse']
+export type PageProductResponse = components['schemas']['PageProductResponse']
 
 export interface LocationItem {
   id: string

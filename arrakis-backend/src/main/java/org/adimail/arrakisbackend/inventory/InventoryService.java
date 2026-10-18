@@ -40,7 +40,7 @@ public class InventoryService {
 
     private static final String GRAPHQL_QUERY = """
         {
-          "query": "query { products(first: 50) { nodes { id title vendor productType status variants(first: 50) { nodes { id title sku price inventoryItem { inventoryLevels(first: 10) { nodes { location { id name } quantities(names: [\\"available\\"]) { name quantity } } } } } } } } }"
+          "query": "query { products(first: 50) { nodes { id title vendor productType status featuredImage { url } variants(first: 50) { nodes { id title sku price inventoryItem { inventoryLevels(first: 10) { nodes { location { id name } quantities(names: [\\"available\\"]) { name quantity } } } } } } } } }"
         }
         """;
 
@@ -68,12 +68,15 @@ public class InventoryService {
             List<Product> productsToSave = new ArrayList<>();
 
             for (ShopifyData.ProductNode pNode : graphQLResponse.data().products().nodes()) {
+                String imageUrl = pNode.featuredImage() != null ? pNode.featuredImage().url() : null;
+
                 Product product = new Product(
                         pNode.id(),
                         pNode.title(),
                         pNode.vendor(),
                         pNode.productType(),
-                        pNode.status()
+                        pNode.status(),
+                        imageUrl
                 );
 
                 if (pNode.variants() != null) {
@@ -175,6 +178,7 @@ public class InventoryService {
                 product.getVendor(),
                 product.getProductType(),
                 product.getStatus(),
+                product.getImageUrl(),
                 totalStock,
                 isLow,
                 variantResponses

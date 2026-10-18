@@ -9,7 +9,7 @@ import java.util.List;
 public class Product {
 
     @Id
-    private String id; // Shopify Product GID: gid://shopify/Product/...
+    private String id;
 
     @Column(nullable = false)
     private String title;
@@ -18,17 +18,21 @@ public class Product {
     private String productType;
     private String status;
 
+    @Column(length = 1000)
+    private String imageUrl;
+
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ProductVariant> variants = new ArrayList<>();
 
     public Product() {}
 
-    public Product(String id, String title, String vendor, String productType, String status) {
+    public Product(String id, String title, String vendor, String productType, String status, String imageUrl) {
         this.id = id;
         this.title = title;
         this.vendor = vendor;
         this.productType = productType;
         this.status = status;
+        this.imageUrl = imageUrl;
     }
 
     public void addVariant(ProductVariant variant) {
@@ -36,7 +40,6 @@ public class Product {
         variant.setProduct(this);
     }
 
-    // Getters and Setters
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
 
@@ -51,6 +54,9 @@ public class Product {
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+
+    public String getImageUrl() { return imageUrl; }
+    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
 
     public List<ProductVariant> getVariants() { return variants; }
     public void setVariants(List<ProductVariant> variants) { this.variants = variants; }

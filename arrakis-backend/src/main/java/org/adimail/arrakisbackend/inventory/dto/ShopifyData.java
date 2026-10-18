@@ -10,12 +10,15 @@ public class ShopifyData {
 
     public record ProductConnection(List<ProductNode> nodes) {}
 
+    public record ImageNode(String url) {}
+
     public record ProductNode(
             String id,
             String title,
             String vendor,
             String productType,
             String status,
+            ImageNode featuredImage,
             VariantConnection variants
     ) {}
 
