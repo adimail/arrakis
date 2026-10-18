@@ -1,6 +1,6 @@
-package org.adimail.arrakisbackend.settings;
+package org.adimail.arrakisbackend.inventory;
 
-import org.adimail.arrakisbackend.settings.model.StoreSetting;
+import org.adimail.arrakisbackend.inventory.model.StoreSetting;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

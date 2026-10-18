@@ -1,9 +1,10 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Modal, Button, Typography, Tag, message } from 'antd'
 import { SyncOutlined, ClockCircleOutlined } from '@ant-design/icons'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { syncInventory } from '../../api/inventory'
 import { useInventoryStore } from '../../store/useInventoryStore'
+import { formatLastSynced, getTimeAgo } from '../../lib/utils'
 
 const { Text, Paragraph } = Typography
 
@@ -12,8 +13,8 @@ export const SyncModal: React.FC = () => {
 
   const open = useInventoryStore((state) => state.isSyncModalOpen)
   const setIsSyncModalOpen = useInventoryStore((state) => state.setIsSyncModalOpen)
-  const lastSynced = useInventoryStore((state) => state.lastSynced)
-  const setLastSynced = useInventoryStore((state) => state.setLastSynced)
+
+  const [lastSynced, setLastSynced] = useState<string | null>(() => localStorage.getItem('last_synced_at'))
 
   const syncMutation = useMutation({
     mutationKey: ['syncInventory'],
@@ -21,6 +22,7 @@ export const SyncModal: React.FC = () => {
     onSuccess: (data) => {
       const now = data.syncedAt || new Date().toISOString()
       setLastSynced(now)
+      localStorage.setItem('last_synced_at', now)
       setIsSyncModalOpen(false)
       message.success(`Synchronized ${data.syncedProductsCount} products from Shopify`)
       queryClient.invalidateQueries({ queryKey: ['products'] })
@@ -30,47 +32,6 @@ export const SyncModal: React.FC = () => {
       message.error('Failed to sync inventory with Shopify')
     },
   })
-
-  const formatLastSynced = (isoString: string | null) => {
-    if (!isoString) return 'Never'
-    const date = new Date(isoString)
-    if (isNaN(date.getTime())) return 'Never'
-    return new Intl.DateTimeFormat('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    }).format(date)
-  }
-
-  const getTimeAgo = (isoString: string | null) => {
-    if (!isoString) return null
-    const date = new Date(isoString)
-    if (isNaN(date.getTime())) return null
-
-    const diffSeconds = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000))
-
-    if (diffSeconds < 10) return 'Just now'
-    if (diffSeconds < 60) return `${diffSeconds}s ago`
-
-    const diffMinutes = Math.floor(diffSeconds / 60)
-    if (diffMinutes < 60) return `${diffMinutes}m ago`
-
-    const diffHours = Math.floor(diffMinutes / 60)
-    if (diffHours < 24) return `${diffHours}h ago`
-
-    const diffDays = Math.floor(diffHours / 24)
-    if (diffDays === 1) return 'Yesterday'
-    if (diffDays < 30) return `${diffDays}d ago`
-
-    const diffMonths = Math.floor(diffDays / 30)
-    if (diffMonths < 12) return `${diffMonths}mo ago`
-
-    const diffYears = Math.floor(diffDays / 365)
-    return `${diffYears}y ago`
-  }
 
   const timeAgo = getTimeAgo(lastSynced)
 

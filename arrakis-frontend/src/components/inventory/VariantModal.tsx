@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { Modal, Table, Button, Typography, InputNumber, Tag, Tooltip, Image, message } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import {
@@ -8,53 +8,57 @@ import {
   CheckCircleOutlined,
   SlidersOutlined,
 } from '@ant-design/icons'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { updateVariantThreshold, type VariantResponse } from '../../api/inventory'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { updateVariantThreshold, fetchSettings, type VariantResponse } from '../../api/inventory'
 import { useInventoryStore } from '../../store/useInventoryStore'
+import { DEFAULT_THRESHOLD, MIN_THRESHOLD, MAX_THRESHOLD } from '../../lib/constants'
+import { formatCurrency } from '../../lib/utils'
 
 const { Text, Title } = Typography
 
 export const VariantModal: React.FC = () => {
   const queryClient = useQueryClient()
   const product = useInventoryStore((state) => state.selectedProduct)
+  const setSelectedProduct = useInventoryStore((state) => state.setSelectedProduct)
   const visible = useInventoryStore((state) => state.isVariantModalOpen)
   const setIsVariantModalOpen = useInventoryStore((state) => state.setIsVariantModalOpen)
-  const globalThreshold = useInventoryStore((state) => state.threshold)
 
-  const [thresholdDrafts, setThresholdDrafts] = useState<Record<string, number | null>>({})
+  const { data: settings } = useQuery({
+    queryKey: ['settings'],
+    queryFn: fetchSettings,
+  })
 
-  useEffect(() => {
-    if (product?.variants) {
-      const drafts: Record<string, number | null> = {}
-      for (const v of product.variants) {
-        if (v.id) {
-          drafts[v.id] = v.alertThreshold ?? null
-        }
-      }
-      setThresholdDrafts(drafts)
-    }
-  }, [product])
+  const globalThreshold = settings?.threshold ?? DEFAULT_THRESHOLD
 
-  const mutation = useMutation({
+  const [dirtyDrafts, setDirtyDrafts] = useState<Record<string, number | null>>({})
+
+  const variantMutation = useMutation({
     mutationFn: ({ variantId, threshold }: { variantId: string; threshold: number | null }) =>
       updateVariantThreshold(variantId, threshold),
-    onSuccess: (updatedVariant) => {
+    onSuccess: (updatedVariant, variables) => {
       message.success('Threshold updated')
-      queryClient.invalidateQueries({ queryKey: ['products'] })
-      queryClient.invalidateQueries({ queryKey: ['metrics'] })
-      queryClient.invalidateQueries({ queryKey: ['customVariants'] })
+      setDirtyDrafts((prev) => {
+        const next = { ...prev }
+        delete next[variables.variantId]
+        return next
+      })
+
       if (product && product.variants) {
         const nextVariants = product.variants.map((v) =>
           v.id === updatedVariant.id ? { ...v, ...updatedVariant } : v
         )
         const hasLow = nextVariants.some((v) => v.isLowInventory)
         const total = product.totalInventory ?? 0
-        useInventoryStore.getState().setSelectedProduct({
+        setSelectedProduct({
           ...product,
           isLowInventory: hasLow || total < globalThreshold,
           variants: nextVariants,
         })
       }
+
+      queryClient.invalidateQueries({ queryKey: ['products'] })
+      queryClient.invalidateQueries({ queryKey: ['metrics'] })
+      queryClient.invalidateQueries({ queryKey: ['customVariants'] })
     },
     onError: () => {
       message.error('Failed to update threshold')
@@ -96,7 +100,7 @@ export const VariantModal: React.FC = () => {
       align: 'right',
       render: (price?: string) => (
         <span style={{ fontSize: 13, fontWeight: 500, color: '#202223', whiteSpace: 'nowrap' }}>
-          {price ? `₹${price}` : '—'}
+          {formatCurrency(price)}
         </span>
       ),
     },
@@ -111,16 +115,14 @@ export const VariantModal: React.FC = () => {
         return (
           <Tag
             icon={isLow ? <AlertOutlined /> : <CheckCircleOutlined />}
+            className={isLow ? 'stock-tag-danger' : 'stock-tag-success'}
             style={{
               margin: 0,
               padding: '2px 10px',
               borderRadius: 12,
               fontWeight: 600,
               fontSize: 12,
-              border: 'none',
               whiteSpace: 'nowrap',
-              backgroundColor: isLow ? '#fed3d1' : '#cbf4c9',
-              color: isLow ? '#d72c0d' : '#0e6245',
             }}
           >
             {qty} in stock
@@ -134,20 +136,20 @@ export const VariantModal: React.FC = () => {
       width: 180,
       render: (_, record: VariantResponse) => {
         const id = record.id || ''
-        const draftVal = thresholdDrafts[id]
+        const currentValue = id in dirtyDrafts ? dirtyDrafts[id] : (record.alertThreshold ?? null)
         const hasSavedCustom = record.alertThreshold !== null && record.alertThreshold !== undefined
-        const isDirty = draftVal !== (record.alertThreshold ?? null)
-        const isPending = mutation.isPending && mutation.variables?.variantId === id
+        const isDirty = id in dirtyDrafts && dirtyDrafts[id] !== (record.alertThreshold ?? null)
+        const isPending = variantMutation.isPending && variantMutation.variables?.variantId === id
 
         return (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
             <InputNumber
               placeholder={`Global (${globalThreshold})`}
-              min={0}
-              max={10000}
-              value={draftVal}
+              min={MIN_THRESHOLD}
+              max={MAX_THRESHOLD}
+              value={currentValue}
               onChange={(val) =>
-                setThresholdDrafts((prev) => ({
+                setDirtyDrafts((prev) => ({
                   ...prev,
                   [id]: val === undefined ? null : val,
                 }))
@@ -167,9 +169,9 @@ export const VariantModal: React.FC = () => {
                   icon={<CheckOutlined />}
                   loading={isPending}
                   onClick={() =>
-                    mutation.mutate({
+                    variantMutation.mutate({
                       variantId: id,
-                      threshold: draftVal ?? null,
+                      threshold: currentValue,
                     })
                   }
                   style={{
@@ -189,8 +191,12 @@ export const VariantModal: React.FC = () => {
                   icon={<ReloadOutlined style={{ color: '#8c9196', fontSize: 12 }} />}
                   loading={isPending}
                   onClick={() => {
-                    setThresholdDrafts((prev) => ({ ...prev, [id]: null }))
-                    mutation.mutate({ variantId: id, threshold: null })
+                    setDirtyDrafts((prev) => {
+                      const next = { ...prev }
+                      delete next[id]
+                      return next
+                    })
+                    variantMutation.mutate({ variantId: id, threshold: null })
                   }}
                   style={{ borderRadius: 6 }}
                 />
@@ -339,11 +345,8 @@ export const VariantModal: React.FC = () => {
         size="middle"
         bordered={false}
         scroll={{ x: 740 }}
-        style={{
-          border: '1px solid #e1e3e5',
-          borderRadius: 8,
-          overflow: 'hidden',
-        }}
+        className="card-container"
+        style={{ overflow: 'hidden' }}
       />
     </Modal>
   )

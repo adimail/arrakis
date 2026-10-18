@@ -11,6 +11,44 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+.card-container {
+  background-color: #ffffff;
+  border: 1px solid #e1e3e5;
+  border-radius: 8px;
+}
+
+.stock-tag-success {
+  background-color: #cbf4c9 !important;
+  color: #0e6245 !important;
+  border: none !important;
+}
+
+.stock-tag-danger {
+  background-color: #fed3d1 !important;
+  color: #d72c0d !important;
+  border: none !important;
+}
+
+.stock-tag-neutral {
+  background-color: #e4e5e7 !important;
+  color: #4a4a4a !important;
+  border: none !important;
+}
+
+.scope-badge {
+  background-color: #f1f2f4;
+  color: #202223;
+  border: 1px solid #d2d5d8;
+  border-radius: 14px;
+  padding: 3px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .shopify-header-location-select.ant-select .ant-select-selector {
   border: none !important;
   box-shadow: none !important;
@@ -68,7 +106,6 @@ body {
     padding: 16px 12px !important;
   }
 
-  /* Single-line sleek header on mobile */
   .shopify-header {
     height: 52px !important;
     min-height: 52px !important;
@@ -76,7 +113,6 @@ body {
     flex-wrap: nowrap !important;
   }
 
-  /* Render only the initials circle */
   .shopify-header-right {
     width: 32px !important;
     height: 32px !important;
@@ -95,7 +131,6 @@ body {
     font-size: 12px !important;
   }
 
-  /* Invisible overlay so tapping the circle opens the location dropdown */
   .shopify-header-location-select {
     position: absolute !important;
     inset: 0 !important;

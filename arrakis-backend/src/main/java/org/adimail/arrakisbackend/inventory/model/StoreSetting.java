@@ -1,4 +1,4 @@
-package org.adimail.arrakisbackend.settings.model;
+package org.adimail.arrakisbackend.inventory.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

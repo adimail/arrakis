@@ -1,6 +1,7 @@
 package org.adimail.arrakisbackend.inventory;
 
-import org.adimail.arrakisbackend.inventory.dto.*;
+import org.adimail.arrakisbackend.inventory.dto.InventoryDtos.*;
+import org.adimail.arrakisbackend.inventory.dto.ProductResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -55,15 +56,29 @@ public class InventoryController {
 
     @PutMapping("/variants/threshold")
     public ResponseEntity<ProductResponse.VariantResponse> updateVariantThreshold(
-            @RequestParam String variantId,
             @RequestBody UpdateThresholdRequest request
     ) {
-        ProductResponse.VariantResponse response = inventoryService.updateVariantThreshold(variantId, request.threshold());
+        ProductResponse.VariantResponse response = inventoryService.updateVariantThreshold(
+                request.variantId(),
+                request.threshold()
+        );
         return ResponseEntity.ok(response);
     }
 
     @GetMapping("/locations")
     public ResponseEntity<List<LocationDto>> getLocations() {
         return ResponseEntity.ok(inventoryService.getDistinctLocations());
+    }
+
+    @GetMapping("/settings")
+    public ResponseEntity<SettingDto> getSettings() {
+        int threshold = inventoryService.getLowInventoryThreshold();
+        return ResponseEntity.ok(new SettingDto(threshold));
+    }
+
+    @PutMapping("/settings")
+    public ResponseEntity<SettingDto> updateSettings(@RequestBody SettingDto request) {
+        inventoryService.setLowInventoryThreshold(request.threshold());
+        return ResponseEntity.ok(new SettingDto(request.threshold()));
     }
 }

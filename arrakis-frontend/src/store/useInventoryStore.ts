@@ -1,9 +1,12 @@
 import { create } from 'zustand'
 import type { ProductResponse } from '../api/inventory'
+import { ALL_LOCATIONS_KEY, DEFAULT_TAB } from '../lib/constants'
+
+export type ActiveTab = 'home' | 'settings'
 
 interface InventoryState {
-  activeTab: 'home' | 'settings'
-  setActiveTab: (tab: 'home' | 'settings') => void
+  activeTab: ActiveTab
+  setActiveTab: (tab: ActiveTab) => void
 
   page: number
   setPage: (page: number) => void
@@ -11,14 +14,8 @@ interface InventoryState {
   locationId: string
   setLocationId: (id: string) => void
 
-  threshold: number
-  setThreshold: (threshold: number) => void
-
   lowStockOnly: boolean
   setLowStockOnly: (val: boolean) => void
-
-  lastSynced: string | null
-  setLastSynced: (timestamp: string) => void
 
   selectedProduct: ProductResponse | null
   setSelectedProduct: (product: ProductResponse | null) => void
@@ -28,28 +25,60 @@ interface InventoryState {
 
   isSyncModalOpen: boolean
   setIsSyncModalOpen: (open: boolean) => void
+
+  syncFromUrl: () => void
 }
 
-export const useInventoryStore = create<InventoryState>((set) => ({
-  activeTab: 'home',
-  setActiveTab: (tab) => set({ activeTab: tab }),
+function getInitialUrlParams() {
+  const params = new URLSearchParams(window.location.search)
+  const tabParam = params.get('tab')
+  const activeTab: ActiveTab = tabParam === 'settings' ? 'settings' : (DEFAULT_TAB as ActiveTab)
+  const pageParsed = parseInt(params.get('page') || '1', 10)
+  const page = isNaN(pageParsed) || pageParsed < 1 ? 1 : pageParsed
+  const locationId = params.get('locationId') || ALL_LOCATIONS_KEY
+  const lowStockOnly = params.get('lowStockOnly') === 'true'
 
-  page: 0,
-  setPage: (page) => set({ page }),
+  return { activeTab, page, locationId, lowStockOnly }
+}
 
-  locationId: 'ALL',
-  setLocationId: (locationId) => set({ locationId, page: 0 }),
+function syncToUrl(tab: ActiveTab, page: number, locationId: string, lowStockOnly: boolean) {
+  const params = new URLSearchParams()
+  if (tab !== DEFAULT_TAB) params.set('tab', tab)
+  if (page > 1) params.set('page', page.toString())
+  if (locationId !== ALL_LOCATIONS_KEY) params.set('locationId', locationId)
+  if (lowStockOnly) params.set('lowStockOnly', 'true')
 
-  threshold: 10,
-  setThreshold: (threshold) => set({ threshold }),
+  const queryString = params.toString()
+  const newUrl = `${window.location.pathname}${queryString ? '?' + queryString : ''}`
+  window.history.pushState({}, '', newUrl)
+}
 
-  lowStockOnly: false,
-  setLowStockOnly: (lowStockOnly) => set({ lowStockOnly, page: 0 }),
+const initial = getInitialUrlParams()
 
-  lastSynced: localStorage.getItem('last_synced_at'),
-  setLastSynced: (lastSynced) => {
-    localStorage.setItem('last_synced_at', lastSynced)
-    set({ lastSynced })
+export const useInventoryStore = create<InventoryState>((set, get) => ({
+  activeTab: initial.activeTab,
+  setActiveTab: (activeTab) => {
+    set({ activeTab })
+    syncToUrl(activeTab, get().page, get().locationId, get().lowStockOnly)
+  },
+
+  page: initial.page,
+  setPage: (page) => {
+    const validPage = Math.max(1, page)
+    set({ page: validPage })
+    syncToUrl(get().activeTab, validPage, get().locationId, get().lowStockOnly)
+  },
+
+  locationId: initial.locationId,
+  setLocationId: (locationId) => {
+    set({ locationId, page: 1 })
+    syncToUrl(get().activeTab, 1, locationId, get().lowStockOnly)
+  },
+
+  lowStockOnly: initial.lowStockOnly,
+  setLowStockOnly: (lowStockOnly) => {
+    set({ lowStockOnly, page: 1 })
+    syncToUrl(get().activeTab, 1, get().locationId, lowStockOnly)
   },
 
   selectedProduct: null,
@@ -60,4 +89,14 @@ export const useInventoryStore = create<InventoryState>((set) => ({
 
   isSyncModalOpen: false,
   setIsSyncModalOpen: (isSyncModalOpen) => set({ isSyncModalOpen }),
+
+  syncFromUrl: () => {
+    const next = getInitialUrlParams()
+    set({
+      activeTab: next.activeTab,
+      page: next.page,
+      locationId: next.locationId,
+      lowStockOnly: next.lowStockOnly,
+    })
+  },
 }))

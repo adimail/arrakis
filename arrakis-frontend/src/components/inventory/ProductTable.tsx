@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { Table, Tag, Typography, Switch, Tooltip, Image } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import {
@@ -8,8 +8,9 @@ import {
   SlidersOutlined,
 } from '@ant-design/icons'
 import { useQuery } from '@tanstack/react-query'
-import { fetchProducts, fetchMetrics, fetchLocations, type ProductResponse } from '../../api/inventory'
+import { fetchProducts, fetchMetrics, fetchLocations, fetchSettings, type ProductResponse } from '../../api/inventory'
 import { useInventoryStore } from '../../store/useInventoryStore'
+import { DEFAULT_THRESHOLD, PAGE_SIZE, ALL_LOCATIONS_KEY } from '../../lib/constants'
 
 const { Text } = Typography
 
@@ -17,11 +18,17 @@ export const ProductTable: React.FC = () => {
   const page = useInventoryStore((state) => state.page)
   const setPage = useInventoryStore((state) => state.setPage)
   const locationId = useInventoryStore((state) => state.locationId)
-  const threshold = useInventoryStore((state) => state.threshold)
   const lowStockOnly = useInventoryStore((state) => state.lowStockOnly)
   const setLowStockOnly = useInventoryStore((state) => state.setLowStockOnly)
   const setSelectedProduct = useInventoryStore((state) => state.setSelectedProduct)
   const setIsVariantModalOpen = useInventoryStore((state) => state.setIsVariantModalOpen)
+
+  const { data: settings } = useQuery({
+    queryKey: ['settings'],
+    queryFn: fetchSettings,
+  })
+
+  const threshold = settings?.threshold ?? DEFAULT_THRESHOLD
 
   const { data: locations = [] } = useQuery({
     queryKey: ['locations'],
@@ -35,11 +42,22 @@ export const ProductTable: React.FC = () => {
 
   const { data: productPage, isLoading } = useQuery({
     queryKey: ['products', page, locationId, threshold, lowStockOnly],
-    queryFn: () => fetchProducts(page, locationId, threshold, lowStockOnly),
+    queryFn: () => fetchProducts(page - 1, locationId, threshold, lowStockOnly),
   })
 
+  useEffect(() => {
+    if (productPage) {
+      const totalPages = productPage.totalPages ?? 0
+      if (totalPages > 0 && page > totalPages) {
+        setPage(1)
+      } else if (totalPages === 0 && page > 1) {
+        setPage(1)
+      }
+    }
+  }, [productPage, page, setPage])
+
   const selectedLocationName =
-    locationId === 'ALL'
+    locationId === ALL_LOCATIONS_KEY
       ? 'All Locations (Pooled)'
       : locations.find((l) => l.id === locationId)?.name || 'Specific Location'
 
@@ -48,10 +66,8 @@ export const ProductTable: React.FC = () => {
     if (s === 'ACTIVE') {
       return (
         <Tag
+          className="stock-tag-success"
           style={{
-            backgroundColor: '#cbf4c9',
-            color: '#0e6245',
-            border: 'none',
             borderRadius: 12,
             padding: '1px 8px',
             fontSize: 12,
@@ -66,10 +82,8 @@ export const ProductTable: React.FC = () => {
     if (s === 'DRAFT') {
       return (
         <Tag
+          className="stock-tag-neutral"
           style={{
-            backgroundColor: '#e4e5e7',
-            color: '#4a4a4a',
-            border: 'none',
             borderRadius: 12,
             padding: '1px 8px',
             fontSize: 12,
@@ -83,10 +97,8 @@ export const ProductTable: React.FC = () => {
     }
     return (
       <Tag
+        className="stock-tag-neutral"
         style={{
-          backgroundColor: '#e4e5e7',
-          color: '#6d7175',
-          border: 'none',
           borderRadius: 12,
           padding: '1px 8px',
           fontSize: 12,
@@ -251,14 +263,12 @@ export const ProductTable: React.FC = () => {
   return (
     <div>
       <div
+        className="card-container"
         style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          backgroundColor: '#ffffff',
           padding: '12px 16px',
-          borderRadius: 8,
-          border: '1px solid #e1e3e5',
           marginBottom: 16,
           flexWrap: 'wrap',
           gap: 12,
@@ -267,10 +277,8 @@ export const ProductTable: React.FC = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <Tag
             icon={<AlertOutlined />}
+            className={lowCount > 0 ? 'stock-tag-danger' : 'stock-tag-neutral'}
             style={{
-              backgroundColor: lowCount > 0 ? '#fed3d1' : '#e4e5e7',
-              color: lowCount > 0 ? '#d72c0d' : '#4a4a4a',
-              border: 'none',
               borderRadius: 14,
               padding: '3px 12px',
               fontWeight: 600,
@@ -281,22 +289,7 @@ export const ProductTable: React.FC = () => {
             {lowCount} Low Stock {lowCount === 1 ? 'Alert' : 'Alerts'}
           </Tag>
 
-          <Tag
-            icon={<EnvironmentOutlined />}
-            style={{
-              backgroundColor: '#f1f2f4',
-              color: '#202223',
-              border: '1px solid #d2d5d8',
-              borderRadius: 14,
-              padding: '3px 12px',
-              fontSize: 12,
-              fontWeight: 500,
-              whiteSpace: 'nowrap',
-              maxWidth: 320,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-          >
+          <Tag icon={<EnvironmentOutlined />} className="scope-badge">
             Scope: {selectedLocationName}
           </Tag>
 
@@ -333,18 +326,21 @@ export const ProductTable: React.FC = () => {
           style: { cursor: 'pointer' },
         })}
         pagination={{
-          current: page + 1,
-          pageSize: 10,
+          current: page,
+          pageSize: PAGE_SIZE,
           total: productPage?.totalElements || 0,
-          onChange: (p) => setPage(p - 1),
+          onChange: (p) => setPage(p),
           showSizeChanger: false,
+          showTotal: (total, range) => (
+            <span style={{ fontSize: 13, color: '#6d7175', marginRight: 8 }}>
+              {total > 0
+                ? `Showing ${range[0]}-${range[1]} of ${total} items`
+                : '0 items'}
+            </span>
+          ),
         }}
         bordered={false}
-        style={{
-          backgroundColor: '#ffffff',
-          borderRadius: 8,
-          border: '1px solid #e1e3e5',
-        }}
+        className="card-container"
       />
     </div>
   )
