@@ -2,6 +2,7 @@ package org.adimail.arrakisbackend.inventory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.adimail.arrakisbackend.config.ShopifyClientConfig;
+import org.adimail.arrakisbackend.inventory.dto.CustomThresholdVariantDto;
 import org.adimail.arrakisbackend.inventory.dto.LocationProjection;
 import org.adimail.arrakisbackend.inventory.dto.ProductResponse;
 import org.adimail.arrakisbackend.inventory.dto.ShopifyData;
@@ -200,6 +201,23 @@ public class InventoryService {
         }
 
         return new PageImpl<>(content, pageRequest, pagedIds.getTotalElements());
+    }
+
+    @Transactional(readOnly = true)
+    public List<CustomThresholdVariantDto> getVariantsWithCustomThreshold() {
+        List<ProductVariant> variants = productVariantRepository.findVariantsWithCustomThreshold();
+        List<CustomThresholdVariantDto> result = new ArrayList<>();
+        for (ProductVariant v : variants) {
+            result.add(new CustomThresholdVariantDto(
+                    v.getId(),
+                    v.getTitle(),
+                    v.getProduct() != null ? v.getProduct().getTitle() : "",
+                    v.getSku(),
+                    v.getPrice(),
+                    v.getAlertThreshold()
+            ));
+        }
+        return result;
     }
 
     @Transactional

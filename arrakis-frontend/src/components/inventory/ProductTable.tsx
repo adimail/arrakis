@@ -1,9 +1,14 @@
 import React from 'react'
-import { Table, Tag, Typography, Switch } from 'antd'
+import { Table, Tag, Typography, Switch, Tooltip } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import { PictureOutlined, AlertOutlined } from '@ant-design/icons'
+import {
+  PictureOutlined,
+  AlertOutlined,
+  EnvironmentOutlined,
+  SlidersOutlined,
+} from '@ant-design/icons'
 import { useQuery } from '@tanstack/react-query'
-import { fetchProducts, fetchMetrics } from '../../api/inventory'
+import { fetchProducts, fetchMetrics, fetchLocations } from '../../api/inventory'
 import { useInventoryStore } from '../../store/useInventoryStore'
 import { ProductResponse } from '../../types/inventory'
 
@@ -19,6 +24,11 @@ export const ProductTable: React.FC = () => {
   const setSelectedProduct = useInventoryStore((state) => state.setSelectedProduct)
   const setIsVariantModalOpen = useInventoryStore((state) => state.setIsVariantModalOpen)
 
+  const { data: locations = [] } = useQuery({
+    queryKey: ['locations'],
+    queryFn: fetchLocations,
+  })
+
   const { data: metrics } = useQuery({
     queryKey: ['metrics', locationId, threshold],
     queryFn: () => fetchMetrics(locationId, threshold),
@@ -28,6 +38,11 @@ export const ProductTable: React.FC = () => {
     queryKey: ['products', page, locationId, threshold, lowStockOnly],
     queryFn: () => fetchProducts(page, locationId, threshold, lowStockOnly),
   })
+
+  const selectedLocationName =
+    locationId === 'ALL'
+      ? 'All Locations (Pooled)'
+      : locations.find((l) => l.id === locationId)?.name || 'Specific Location'
 
   const getStatusTag = (status?: string) => {
     const s = (status || 'ACTIVE').toUpperCase()
@@ -87,37 +102,69 @@ export const ProductTable: React.FC = () => {
       title: 'Product',
       key: 'product',
       minWidth: 160,
-      render: (_, record) => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div
-            style={{
-              width: 34,
-              height: 34,
-              borderRadius: 6,
-              backgroundColor: '#f1f2f3',
-              border: '1px solid #e1e3e5',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              overflow: 'hidden',
-              flexShrink: 0,
-            }}
-          >
-            {record.imageUrl ? (
-              <img
-                src={record.imageUrl}
-                alt={record.title}
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
-            ) : (
-              <PictureOutlined style={{ color: '#8c9196', fontSize: 16 }} />
-            )}
+      render: (_, record) => {
+        const customVariants = record.variants?.filter(
+          (v) => v.alertThreshold !== null && v.alertThreshold !== undefined
+        ) || []
+        const hasCustom = customVariants.length > 0
+
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 6,
+                backgroundColor: '#f1f2f3',
+                border: '1px solid #e1e3e5',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden',
+                flexShrink: 0,
+              }}
+            >
+              {record.imageUrl ? (
+                <img
+                  src={record.imageUrl}
+                  alt={record.title}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              ) : (
+                <PictureOutlined style={{ color: '#8c9196', fontSize: 16 }} />
+              )}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Text style={{ fontWeight: 500, color: '#202223', fontSize: 13, lineHeight: 1.3 }}>
+                {record.title}
+              </Text>
+              {hasCustom && (
+                <Tooltip
+                  title={`Custom threshold set on ${customVariants.length} variant${
+                    customVariants.length > 1 ? 's' : ''
+                  }`}
+                >
+                  <Tag
+                    icon={<SlidersOutlined />}
+                    style={{
+                      backgroundColor: '#e0f2fe',
+                      color: '#0369a1',
+                      border: 'none',
+                      borderRadius: 10,
+                      padding: '0 6px',
+                      fontSize: 11,
+                      margin: 0,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Custom
+                  </Tag>
+                </Tooltip>
+              )}
+            </div>
           </div>
-          <Text style={{ fontWeight: 500, color: '#202223', fontSize: 13, lineHeight: 1.3 }}>
-            {record.title}
-          </Text>
-        </div>
-      ),
+        )
+      },
     },
     {
       title: 'Status',
@@ -129,7 +176,7 @@ export const ProductTable: React.FC = () => {
     {
       title: 'Inventory',
       key: 'inventory',
-      minWidth: 120,
+      minWidth: 140,
       render: (_, record) => {
         const count = record.totalInventory ?? 0
         const isLow = record.isLowInventory ?? false
@@ -193,7 +240,7 @@ export const ProductTable: React.FC = () => {
           gap: 12,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <Tag
             icon={<AlertOutlined />}
             style={{
@@ -208,6 +255,22 @@ export const ProductTable: React.FC = () => {
           >
             {lowCount} Low Stock {lowCount === 1 ? 'Alert' : 'Alerts'}
           </Tag>
+
+          <Tag
+            icon={<EnvironmentOutlined />}
+            style={{
+              backgroundColor: '#f1f2f4',
+              color: '#202223',
+              border: '1px solid #d2d5d8',
+              borderRadius: 14,
+              padding: '2px 10px',
+              fontSize: 12,
+              fontWeight: 500,
+            }}
+          >
+            Scope: {selectedLocationName}
+          </Tag>
+
           <Text type="secondary" style={{ fontSize: 12 }}>
             Threshold: &lt; {threshold}
           </Text>

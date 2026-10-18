@@ -8,6 +8,15 @@ export interface VariantResponse {
   isLowInventory: boolean
 }
 
+export interface CustomThresholdVariant {
+  variantId: string
+  variantTitle: string
+  productTitle: string
+  sku?: string
+  price?: string
+  alertThreshold: number
+}
+
 export interface ProductResponse {
   id: string
   title: string

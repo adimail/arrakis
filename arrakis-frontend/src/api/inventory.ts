@@ -1,4 +1,4 @@
-import { LocationItem, PageProductResponse, VariantResponse } from '../types/inventory'
+import { CustomThresholdVariant, LocationItem, PageProductResponse, VariantResponse } from '../types/inventory'
 
 const BASE_URL = 'http://localhost:8080/api'
 
@@ -58,6 +58,12 @@ export async function updateSettings(threshold: number): Promise<{ threshold: nu
     body: JSON.stringify({ threshold }),
   })
   if (!res.ok) throw new Error('Failed to save settings')
+  return res.json()
+}
+
+export async function fetchCustomThresholdVariants(): Promise<CustomThresholdVariant[]> {
+  const res = await fetch(`${BASE_URL}/variants/custom-thresholds`)
+  if (!res.ok) throw new Error('Failed to load custom thresholds')
   return res.json()
 }
 

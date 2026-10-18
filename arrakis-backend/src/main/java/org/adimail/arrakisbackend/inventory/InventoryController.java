@@ -1,5 +1,6 @@
 package org.adimail.arrakisbackend.inventory;
 
+import org.adimail.arrakisbackend.inventory.dto.CustomThresholdVariantDto;
 import org.adimail.arrakisbackend.inventory.dto.ProductResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
@@ -47,6 +48,11 @@ public class InventoryController {
             @RequestParam(required = false) Integer threshold
     ) {
         return ResponseEntity.ok(inventoryService.getInventoryMetrics(locationId, threshold));
+    }
+
+    @GetMapping("/variants/custom-thresholds")
+    public ResponseEntity<List<CustomThresholdVariantDto>> getCustomThresholdVariants() {
+        return ResponseEntity.ok(inventoryService.getVariantsWithCustomThreshold());
     }
 
     @PutMapping("/variants/threshold")
