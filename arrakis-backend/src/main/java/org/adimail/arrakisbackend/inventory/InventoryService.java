@@ -2,15 +2,11 @@ package org.adimail.arrakisbackend.inventory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.adimail.arrakisbackend.config.ShopifyClientConfig;
-import org.adimail.arrakisbackend.inventory.dto.CustomThresholdVariantDto;
-import org.adimail.arrakisbackend.inventory.dto.LocationDto;
-import org.adimail.arrakisbackend.inventory.dto.LocationProjection;
-import org.adimail.arrakisbackend.inventory.dto.MetricsResponse;
-import org.adimail.arrakisbackend.inventory.dto.ProductResponse;
-import org.adimail.arrakisbackend.inventory.dto.ShopifyData;
+import org.adimail.arrakisbackend.inventory.dto.*;
 import org.adimail.arrakisbackend.inventory.model.InventoryLevel;
 import org.adimail.arrakisbackend.inventory.model.Product;
 import org.adimail.arrakisbackend.inventory.model.ProductVariant;
+import org.adimail.arrakisbackend.notification.SseNotificationService;
 import org.adimail.arrakisbackend.settings.StoreSettingService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -31,6 +27,7 @@ public class InventoryService {
     private final ProductVariantRepository productVariantRepository;
     private final InventoryLevelRepository inventoryLevelRepository;
     private final StoreSettingService storeSettingService;
+    private final SseNotificationService sseNotificationService;
     private final ShopifyClientConfig shopifyConfig;
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
@@ -39,6 +36,7 @@ public class InventoryService {
                             ProductVariantRepository productVariantRepository,
                             InventoryLevelRepository inventoryLevelRepository,
                             StoreSettingService storeSettingService,
+                            SseNotificationService sseNotificationService,
                             ShopifyClientConfig shopifyConfig,
                             HttpClient httpClient,
                             ObjectMapper objectMapper) {
@@ -46,6 +44,7 @@ public class InventoryService {
         this.productVariantRepository = productVariantRepository;
         this.inventoryLevelRepository = inventoryLevelRepository;
         this.storeSettingService = storeSettingService;
+        this.sseNotificationService = sseNotificationService;
         this.shopifyConfig = shopifyConfig;
         this.httpClient = httpClient;
         this.objectMapper = objectMapper;
@@ -53,7 +52,7 @@ public class InventoryService {
 
     private static final String GRAPHQL_QUERY = """
         {
-          "query": "query { products(first: 50) { nodes { id title vendor productType status featuredImage { url } variants(first: 50) { nodes { id title sku price inventoryItem { inventoryLevels(first: 10) { nodes { location { id name } quantities(names: [\\"available\\"]) { name quantity } } } } } } } } }"
+          "query": "query { products(first: 50) { nodes { id title vendor productType status featuredImage { url } variants(first: 50) { nodes { id title sku price inventoryItem { id inventoryLevels(first: 10) { nodes { location { id name } quantities(names: [\\"available\\"]) { name quantity } } } } } } } } }"
         }
         """;
 
@@ -109,6 +108,10 @@ public class InventoryService {
                                 vNode.price()
                         );
 
+                        if (vNode.inventoryItem() != null) {
+                            variant.setInventoryItemId(vNode.inventoryItem().id());
+                        }
+
                         if (existingThresholds.containsKey(vNode.id())) {
                             variant.setAlertThreshold(existingThresholds.get(vNode.id()));
                         }
@@ -140,6 +143,64 @@ public class InventoryService {
         } catch (Exception e) {
             throw new RuntimeException("Sync failed: " + e.getMessage(), e);
         }
+    }
+
+    @Transactional
+    public void handleInventoryWebhook(InventoryWebhookPayload payload) {
+        if (payload == null || payload.inventoryItemId() == null) {
+            return;
+        }
+
+        String itemIdStr = String.valueOf(payload.inventoryItemId());
+        ProductVariant variant = productVariantRepository.findByInventoryItemIdOrSuffix(itemIdStr).orElse(null);
+
+        if (variant == null) {
+            return;
+        }
+
+        String locationIdStr = String.valueOf(payload.locationId());
+        int newAvailable = payload.available() != null ? payload.available() : 0;
+
+        boolean levelFound = false;
+        for (InventoryLevel level : variant.getInventoryLevels()) {
+            if (level.getLocationId().endsWith(locationIdStr)) {
+                level.setAvailableQuantity(newAvailable);
+                levelFound = true;
+                break;
+            }
+        }
+
+        if (!levelFound) {
+            InventoryLevel newLevel = new InventoryLevel(
+                    "gid://shopify/Location/" + locationIdStr,
+                    "Location " + locationIdStr,
+                    newAvailable
+            );
+            variant.addInventoryLevel(newLevel);
+        }
+
+        productVariantRepository.save(variant);
+
+        int totalStock = 0;
+        for (InventoryLevel level : variant.getInventoryLevels()) {
+            totalStock += level.getAvailableQuantity();
+        }
+
+        int threshold = variant.getAlertThreshold() != null
+                ? variant.getAlertThreshold()
+                : storeSettingService.getLowInventoryThreshold();
+
+        boolean isLow = totalStock < threshold;
+
+        StockUpdateEvent event = new StockUpdateEvent(
+                variant.getId(),
+                variant.getTitle(),
+                variant.getProduct() != null ? variant.getProduct().getTitle() : "",
+                totalStock,
+                isLow
+        );
+
+        sseNotificationService.broadcast(event);
     }
 
     @Transactional(readOnly = true)

@@ -1,0 +1,9 @@
+.git
+.gitignore
+.idea
+.vscode
+*.log
+.DS_Store
+arrakis-backend/target
+arrakis-frontend/node_modules
+arrakis-frontend/dist

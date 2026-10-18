@@ -17,6 +17,9 @@ public class ProductVariant {
     private String sku;
     private String price;
 
+    @Column(name = "inventory_item_id")
+    private String inventoryItemId;
+
     @Column(name = "alert_threshold")
     private Integer alertThreshold;
 
@@ -52,6 +55,9 @@ public class ProductVariant {
 
     public String getPrice() { return price; }
     public void setPrice(String price) { this.price = price; }
+
+    public String getInventoryItemId() { return inventoryItemId; }
+    public void setInventoryItemId(String inventoryItemId) { this.inventoryItemId = inventoryItemId; }
 
     public Integer getAlertThreshold() { return alertThreshold; }
     public void setAlertThreshold(Integer alertThreshold) { this.alertThreshold = alertThreshold; }
