@@ -56,6 +56,7 @@ export const ProductTable: React.FC = () => {
             padding: '1px 8px',
             fontSize: 12,
             fontWeight: 500,
+            whiteSpace: 'nowrap',
           }}
         >
           Active
@@ -73,6 +74,7 @@ export const ProductTable: React.FC = () => {
             padding: '1px 8px',
             fontSize: 12,
             fontWeight: 500,
+            whiteSpace: 'nowrap',
           }}
         >
           Draft
@@ -89,6 +91,7 @@ export const ProductTable: React.FC = () => {
           padding: '1px 8px',
           fontSize: 12,
           fontWeight: 500,
+          whiteSpace: 'nowrap',
         }}
       >
         Archived
@@ -100,7 +103,7 @@ export const ProductTable: React.FC = () => {
     {
       title: 'Product',
       key: 'product',
-      minWidth: 160,
+      width: 280,
       render: (_, record) => {
         const customVariants = record.variants?.filter(
           (v) => v.alertThreshold !== null && v.alertThreshold !== undefined
@@ -108,11 +111,11 @@ export const ProductTable: React.FC = () => {
         const hasCustom = customVariants.length > 0
 
         return (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div
               style={{
-                width: 34,
-                height: 34,
+                width: 38,
+                height: 38,
                 borderRadius: 6,
                 backgroundColor: '#f1f2f3',
                 border: '1px solid #e1e3e5',
@@ -130,11 +133,22 @@ export const ProductTable: React.FC = () => {
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
               ) : (
-                <PictureOutlined style={{ color: '#8c9196', fontSize: 16 }} />
+                <PictureOutlined style={{ color: '#8c9196', fontSize: 18 }} />
               )}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Text style={{ fontWeight: 500, color: '#202223', fontSize: 13, lineHeight: 1.3 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+              <Text
+                style={{
+                  fontWeight: 600,
+                  color: '#202223',
+                  fontSize: 13,
+                  lineHeight: 1.4,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  maxWidth: 200,
+                }}
+              >
                 {record.title}
               </Text>
               {hasCustom && (
@@ -154,6 +168,8 @@ export const ProductTable: React.FC = () => {
                       fontSize: 11,
                       margin: 0,
                       cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0,
                     }}
                   >
                     Custom
@@ -169,13 +185,13 @@ export const ProductTable: React.FC = () => {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
-      width: 85,
+      width: 100,
       render: (status?: string) => getStatusTag(status),
     },
     {
       title: 'Inventory',
       key: 'inventory',
-      minWidth: 140,
+      width: 220,
       render: (_, record) => {
         const count = record.totalInventory ?? 0
         const isLow = record.isLowInventory ?? false
@@ -192,6 +208,7 @@ export const ProductTable: React.FC = () => {
               color: isLow ? '#d72c0d' : '#202223',
               fontWeight: isLow ? 600 : 400,
               fontSize: 13,
+              whiteSpace: 'nowrap',
             }}
           >
             {text}
@@ -203,20 +220,22 @@ export const ProductTable: React.FC = () => {
       title: 'Type',
       dataIndex: 'productType',
       key: 'productType',
-      minWidth: 120,
-      responsive: ['md'],
+      width: 160,
       render: (type?: string) => (
-        <Text style={{ color: '#202223', fontSize: 13 }}>{type || '-'}</Text>
+        <Text style={{ color: '#202223', fontSize: 13, whiteSpace: 'nowrap' }}>
+          {type || '—'}
+        </Text>
       ),
     },
     {
       title: 'Vendor',
       dataIndex: 'vendor',
       key: 'vendor',
-      minWidth: 130,
-      responsive: ['md'],
+      width: 180,
       render: (vendor?: string) => (
-        <Text style={{ color: '#202223', fontSize: 13 }}>{vendor || '-'}</Text>
+        <Text style={{ color: '#202223', fontSize: 13, whiteSpace: 'nowrap' }}>
+          {vendor || '—'}
+        </Text>
       ),
     },
   ]
@@ -239,7 +258,7 @@ export const ProductTable: React.FC = () => {
           gap: 12,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <Tag
             icon={<AlertOutlined />}
             style={{
@@ -247,9 +266,10 @@ export const ProductTable: React.FC = () => {
               color: lowCount > 0 ? '#d72c0d' : '#4a4a4a',
               border: 'none',
               borderRadius: 14,
-              padding: '2px 10px',
+              padding: '3px 12px',
               fontWeight: 600,
               fontSize: 12,
+              whiteSpace: 'nowrap',
             }}
           >
             {lowCount} Low Stock {lowCount === 1 ? 'Alert' : 'Alerts'}
@@ -262,20 +282,24 @@ export const ProductTable: React.FC = () => {
               color: '#202223',
               border: '1px solid #d2d5d8',
               borderRadius: 14,
-              padding: '2px 10px',
+              padding: '3px 12px',
               fontSize: 12,
               fontWeight: 500,
+              whiteSpace: 'nowrap',
+              maxWidth: 320,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
             }}
           >
             Scope: {selectedLocationName}
           </Tag>
 
-          <Text type="secondary" style={{ fontSize: 12 }}>
+          <Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
             Threshold: &lt; {threshold}
           </Text>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}>
           <Text style={{ fontSize: 13, fontWeight: 500, color: '#202223' }}>
             Show Low Stock Only
           </Text>
@@ -294,7 +318,7 @@ export const ProductTable: React.FC = () => {
         columns={columns}
         dataSource={productPage?.content || []}
         loading={isLoading}
-        scroll={{ x: 'max-content' }}
+        scroll={{ x: 940 }}
         onRow={(record) => ({
           onClick: () => {
             setSelectedProduct(record)

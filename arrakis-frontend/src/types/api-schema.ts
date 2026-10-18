@@ -4,7 +4,7 @@
  */
 
 export interface paths {
-    "/api/variants/{variantId}/threshold": {
+    "/api/variants/threshold": {
         parameters: {
             query?: never;
             header?: never;
@@ -155,16 +155,16 @@ export interface components {
             alertThreshold?: number;
         };
         PageProductResponse: {
-            /** Format: int64 */
-            totalElements?: number;
             /** Format: int32 */
             totalPages?: number;
+            /** Format: int64 */
+            totalElements?: number;
             first?: boolean;
             last?: boolean;
-            /** Format: int32 */
-            numberOfElements?: number;
             sort?: components["schemas"]["SortObject"];
             pageable?: components["schemas"]["PageableObject"];
+            /** Format: int32 */
+            numberOfElements?: number;
             /** Format: int32 */
             size?: number;
             content?: components["schemas"]["ProductResponse"][];
@@ -173,13 +173,13 @@ export interface components {
             empty?: boolean;
         };
         PageableObject: {
+            unpaged?: boolean;
             sort?: components["schemas"]["SortObject"];
             paged?: boolean;
             /** Format: int32 */
             pageNumber?: number;
             /** Format: int32 */
             pageSize?: number;
-            unpaged?: boolean;
             /** Format: int64 */
             offset?: number;
         };
@@ -196,8 +196,8 @@ export interface components {
             variants?: components["schemas"]["VariantResponse"][];
         };
         SortObject: {
-            sorted?: boolean;
             unsorted?: boolean;
+            sorted?: boolean;
             empty?: boolean;
         };
         MetricsResponse: {
@@ -221,11 +221,11 @@ export type $defs = Record<string, never>;
 export interface operations {
     updateVariantThreshold: {
         parameters: {
-            query?: never;
-            header?: never;
-            path: {
+            query: {
                 variantId: string;
             };
+            header?: never;
+            path?: never;
             cookie?: never;
         };
         requestBody: {

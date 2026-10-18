@@ -83,9 +83,9 @@ export async function updateVariantThreshold(
   variantId: string,
   threshold: number | null
 ): Promise<VariantResponse> {
-  const { data, error } = await api.PUT('/api/variants/{variantId}/threshold', {
+  const { data, error } = await api.PUT('/api/variants/threshold', {
     params: {
-      path: { variantId },
+      query: { variantId },
     },
     body: { threshold: threshold ?? undefined },
   })

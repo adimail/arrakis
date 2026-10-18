@@ -53,9 +53,9 @@ public class InventoryController {
         return ResponseEntity.ok(inventoryService.getVariantsWithCustomThreshold());
     }
 
-    @PutMapping("/variants/{variantId}/threshold")
+    @PutMapping("/variants/threshold")
     public ResponseEntity<ProductResponse.VariantResponse> updateVariantThreshold(
-            @PathVariable String variantId,
+            @RequestParam String variantId,
             @RequestBody UpdateThresholdRequest request
     ) {
         ProductResponse.VariantResponse response = inventoryService.updateVariantThreshold(variantId, request.threshold());
