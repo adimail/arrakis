@@ -2,27 +2,26 @@ import React from 'react'
 import { Table, Tag, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { PictureOutlined } from '@ant-design/icons'
+import { useQuery } from '@tanstack/react-query'
+import { fetchProducts } from '../../api/inventory'
+import { useInventoryStore } from '../../store/useInventoryStore'
 import { ProductResponse } from '../../types/inventory'
 
 const { Text } = Typography
 
-interface ProductTableProps {
-  products: ProductResponse[]
-  loading: boolean
-  total: number
-  currentPage: number
-  onPageChange: (page: number) => void
-  onRowClick: (product: ProductResponse) => void
-}
+export const ProductTable: React.FC = () => {
+  const page = useInventoryStore((state) => state.page)
+  const setPage = useInventoryStore((state) => state.setPage)
+  const locationId = useInventoryStore((state) => state.locationId)
+  const threshold = useInventoryStore((state) => state.threshold)
+  const setSelectedProduct = useInventoryStore((state) => state.setSelectedProduct)
+  const setIsVariantModalOpen = useInventoryStore((state) => state.setIsVariantModalOpen)
 
-export const ProductTable: React.FC<ProductTableProps> = ({
-  products,
-  loading,
-  total,
-  currentPage,
-  onPageChange,
-  onRowClick,
-}) => {
+  const { data: productPage, isLoading } = useQuery({
+    queryKey: ['products', page, locationId, threshold],
+    queryFn: () => fetchProducts(page, locationId, threshold),
+  })
+
   const getStatusTag = (status?: string) => {
     const s = (status || 'ACTIVE').toUpperCase()
     if (s === 'ACTIVE') {
@@ -173,18 +172,21 @@ export const ProductTable: React.FC<ProductTableProps> = ({
     <Table<ProductResponse>
       rowKey="id"
       columns={columns}
-      dataSource={products}
-      loading={loading}
+      dataSource={productPage?.content || []}
+      loading={isLoading}
       scroll={{ x: 'max-content' }}
       onRow={(record) => ({
-        onClick: () => onRowClick(record),
+        onClick: () => {
+          setSelectedProduct(record)
+          setIsVariantModalOpen(true)
+        },
         style: { cursor: 'pointer' },
       })}
       pagination={{
-        current: currentPage + 1,
+        current: page + 1,
         pageSize: 10,
-        total,
-        onChange: (page) => onPageChange(page - 1),
+        total: productPage?.totalElements || 0,
+        onChange: (p) => setPage(p - 1),
         showSizeChanger: false,
       }}
       bordered={false}

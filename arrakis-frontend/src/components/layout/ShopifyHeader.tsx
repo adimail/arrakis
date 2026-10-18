@@ -1,26 +1,25 @@
 import React, { useState } from 'react'
 import { Select, Avatar, Typography, ConfigProvider, theme, Button } from 'antd'
 import { SyncOutlined } from '@ant-design/icons'
-import { LocationItem } from '../../types/inventory'
+import { useQuery, useIsMutating } from '@tanstack/react-query'
+import { fetchLocations } from '../../api/inventory'
+import { useInventoryStore } from '../../store/useInventoryStore'
 
 const { Text } = Typography
 
-interface ShopifyHeaderProps {
-  locations: LocationItem[]
-  selectedLocation: string
-  onLocationChange: (val: string) => void
-  onOpenSync: () => void
-  isSyncing: boolean
-}
-
-export const ShopifyHeader: React.FC<ShopifyHeaderProps> = ({
-  locations,
-  selectedLocation,
-  onLocationChange,
-  onOpenSync,
-  isSyncing,
-}) => {
+export const ShopifyHeader: React.FC = () => {
   const [imgError, setImgError] = useState(false)
+
+  const locationId = useInventoryStore((state) => state.locationId)
+  const setLocationId = useInventoryStore((state) => state.setLocationId)
+  const setIsSyncModalOpen = useInventoryStore((state) => state.setIsSyncModalOpen)
+
+  const isSyncing = useIsMutating({ mutationKey: ['syncInventory'] }) > 0
+
+  const { data: locations = [] } = useQuery({
+    queryKey: ['locations'],
+    queryFn: fetchLocations,
+  })
 
   const locationOptions = [
     { value: 'ALL', label: 'All Locations' },
@@ -37,9 +36,9 @@ export const ShopifyHeader: React.FC<ShopifyHeaderProps> = ({
   }
 
   const selectedLocationName =
-    selectedLocation === 'ALL'
+    locationId === 'ALL'
       ? 'All Locations'
-      : locations.find((l) => l.id === selectedLocation)?.name || 'All Locations'
+      : locations.find((l) => l.id === locationId)?.name || 'All Locations'
 
   return (
     <ConfigProvider
@@ -115,7 +114,7 @@ export const ShopifyHeader: React.FC<ShopifyHeaderProps> = ({
           <Button
             className="shopify-header-sync-btn"
             icon={<SyncOutlined spin={isSyncing} />}
-            onClick={onOpenSync}
+            onClick={() => setIsSyncModalOpen(true)}
           >
             <span className="shopify-header-sync-text">Sync</span>
           </Button>
@@ -151,8 +150,8 @@ export const ShopifyHeader: React.FC<ShopifyHeaderProps> = ({
             <Select
               variant="borderless"
               className="shopify-header-location-select"
-              value={selectedLocation}
-              onChange={onLocationChange}
+              value={locationId}
+              onChange={setLocationId}
               options={locationOptions}
               size="small"
               style={{ minWidth: 160 }}

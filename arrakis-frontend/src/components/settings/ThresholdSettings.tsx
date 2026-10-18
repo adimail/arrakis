@@ -1,21 +1,17 @@
 import React, { useState } from 'react'
 import { Button, InputNumber, Typography, message } from 'antd'
+import { useInventoryStore } from '../../store/useInventoryStore'
 
 const { Title, Text } = Typography
 
-interface ThresholdSettingsProps {
-  initialThreshold: number
-  onSave: (threshold: number) => void
-}
+export const ThresholdSettings: React.FC = () => {
+  const threshold = useInventoryStore((state) => state.threshold)
+  const setThreshold = useInventoryStore((state) => state.setThreshold)
 
-export const ThresholdSettings: React.FC<ThresholdSettingsProps> = ({
-  initialThreshold,
-  onSave,
-}) => {
-  const [val, setVal] = useState<number>(initialThreshold)
+  const [val, setVal] = useState<number>(threshold)
 
   const handleSave = () => {
-    onSave(val)
+    setThreshold(val)
     message.success('Threshold setting saved successfully')
   }
 

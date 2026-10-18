@@ -1,23 +1,21 @@
 import React from 'react'
 import { Modal, Table, Button, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import { ProductResponse, VariantResponse } from '../../types/inventory'
+import { useInventoryStore } from '../../store/useInventoryStore'
+import { VariantResponse } from '../../types/inventory'
 
 const { Text } = Typography
 
-interface VariantModalProps {
-  product: ProductResponse | null
-  visible: boolean
-  onClose: () => void
-  threshold: number
-}
+export const VariantModal: React.FC = () => {
+  const product = useInventoryStore((state) => state.selectedProduct)
+  const visible = useInventoryStore((state) => state.isVariantModalOpen)
+  const setIsVariantModalOpen = useInventoryStore((state) => state.setIsVariantModalOpen)
+  const threshold = useInventoryStore((state) => state.threshold)
 
-export const VariantModal: React.FC<VariantModalProps> = ({
-  product,
-  visible,
-  onClose,
-  threshold,
-}) => {
+  const handleClose = () => {
+    setIsVariantModalOpen(false)
+  }
+
   const columns: ColumnsType<VariantResponse> = [
     {
       title: 'Product',
@@ -70,12 +68,12 @@ export const VariantModal: React.FC<VariantModalProps> = ({
     <Modal
       title="Variants"
       open={visible}
-      onCancel={onClose}
+      onCancel={handleClose}
       footer={[
         <Button
           key="close"
           type="primary"
-          onClick={onClose}
+          onClick={handleClose}
           style={{
             backgroundColor: '#008060',
             borderColor: '#008060',
@@ -97,7 +95,7 @@ export const VariantModal: React.FC<VariantModalProps> = ({
         columns={columns}
         dataSource={product?.variants || []}
         pagination={false}
-        scroll={{ x: 480 }}
+        scroll={{ x: 'max-content' }}
         size="middle"
       />
     </Modal>

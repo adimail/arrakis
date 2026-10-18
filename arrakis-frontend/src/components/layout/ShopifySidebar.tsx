@@ -1,12 +1,11 @@
 import React from 'react'
 import { HomeOutlined, SettingOutlined } from '@ant-design/icons'
+import { useInventoryStore } from '../../store/useInventoryStore'
 
-interface ShopifySidebarProps {
-  activeTab: 'home' | 'settings'
-  onSelectTab: (tab: 'home' | 'settings') => void
-}
+export const ShopifySidebar: React.FC = () => {
+  const activeTab = useInventoryStore((state) => state.activeTab)
+  const setActiveTab = useInventoryStore((state) => state.setActiveTab)
 
-export const ShopifySidebar: React.FC<ShopifySidebarProps> = ({ activeTab, onSelectTab }) => {
   return (
     <aside
       className="shopify-sidebar"
@@ -30,7 +29,7 @@ export const ShopifySidebar: React.FC<ShopifySidebarProps> = ({ activeTab, onSel
       >
         <button
           className="shopify-sidebar-btn"
-          onClick={() => onSelectTab('home')}
+          onClick={() => setActiveTab('home')}
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -54,7 +53,7 @@ export const ShopifySidebar: React.FC<ShopifySidebarProps> = ({ activeTab, onSel
 
         <button
           className="shopify-sidebar-btn"
-          onClick={() => onSelectTab('settings')}
+          onClick={() => setActiveTab('settings')}
           style={{
             display: 'flex',
             alignItems: 'center',
