@@ -18,6 +18,8 @@ public record ProductResponse(
             String title,
             String sku,
             String price,
-            int inventoryQuantity
+            int inventoryQuantity,
+            Integer alertThreshold,
+            boolean isLowInventory
     ) {}
 }

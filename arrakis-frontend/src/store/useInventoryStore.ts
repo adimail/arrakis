@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { ProductResponse } from '../types/inventory'
+import type { ProductResponse } from '../api/inventory'
 
 interface InventoryState {
   activeTab: 'home' | 'settings'
@@ -13,6 +13,9 @@ interface InventoryState {
 
   threshold: number
   setThreshold: (threshold: number) => void
+
+  lowStockOnly: boolean
+  setLowStockOnly: (val: boolean) => void
 
   lastSynced: string | null
   setLastSynced: (timestamp: string) => void
@@ -37,14 +40,11 @@ export const useInventoryStore = create<InventoryState>((set) => ({
   locationId: 'ALL',
   setLocationId: (locationId) => set({ locationId, page: 0 }),
 
-  threshold: (() => {
-    const saved = localStorage.getItem('low_inventory_threshold')
-    return saved ? parseInt(saved, 10) : 10
-  })(),
-  setThreshold: (threshold) => {
-    localStorage.setItem('low_inventory_threshold', threshold.toString())
-    set({ threshold, activeTab: 'home' })
-  },
+  threshold: 10,
+  setThreshold: (threshold) => set({ threshold }),
+
+  lowStockOnly: false,
+  setLowStockOnly: (lowStockOnly) => set({ lowStockOnly, page: 0 }),
 
   lastSynced: localStorage.getItem('last_synced_at'),
   setLastSynced: (lastSynced) => {

@@ -11,5 +11,33 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
 
+  backend:
+    build:
+      context: ./arrakis-backend
+      dockerfile: Dockerfile
+    container_name: arrakis-backend
+    restart: always
+    depends_on:
+      - mysql
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/arrakis_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: rootpassword
+      SHOPIFY_STORE_DOMAIN: ${SHOPIFY_STORE_DOMAIN}
+      SHOPIFY_ACCESS_TOKEN: ${SHOPIFY_ACCESS_TOKEN}
+
+  frontend:
+    build:
+      context: ./arrakis-frontend
+      dockerfile: Dockerfile
+    container_name: arrakis-frontend
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+
 volumes:
   mysql_data:

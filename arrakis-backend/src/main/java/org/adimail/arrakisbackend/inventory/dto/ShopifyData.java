@@ -32,7 +32,10 @@ public class ShopifyData {
             InventoryItemNode inventoryItem
     ) {}
 
-    public record InventoryItemNode(InventoryLevelConnection inventoryLevels) {}
+    public record InventoryItemNode(
+            String id,
+            InventoryLevelConnection inventoryLevels
+    ) {}
 
     public record InventoryLevelConnection(List<InventoryLevelNode> nodes) {}
 

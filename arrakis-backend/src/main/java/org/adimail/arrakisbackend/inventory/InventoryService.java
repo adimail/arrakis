@@ -2,11 +2,12 @@ package org.adimail.arrakisbackend.inventory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.adimail.arrakisbackend.config.ShopifyClientConfig;
-import org.adimail.arrakisbackend.inventory.dto.ProductResponse;
-import org.adimail.arrakisbackend.inventory.dto.ShopifyData;
+import org.adimail.arrakisbackend.inventory.dto.*;
 import org.adimail.arrakisbackend.inventory.model.InventoryLevel;
 import org.adimail.arrakisbackend.inventory.model.Product;
 import org.adimail.arrakisbackend.inventory.model.ProductVariant;
+import org.adimail.arrakisbackend.notification.SseNotificationService;
+import org.adimail.arrakisbackend.settings.StoreSettingService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -17,22 +18,33 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 @Service
 public class InventoryService {
 
     private final ProductRepository productRepository;
+    private final ProductVariantRepository productVariantRepository;
+    private final InventoryLevelRepository inventoryLevelRepository;
+    private final StoreSettingService storeSettingService;
+    private final SseNotificationService sseNotificationService;
     private final ShopifyClientConfig shopifyConfig;
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
 
     public InventoryService(ProductRepository productRepository,
+                            ProductVariantRepository productVariantRepository,
+                            InventoryLevelRepository inventoryLevelRepository,
+                            StoreSettingService storeSettingService,
+                            SseNotificationService sseNotificationService,
                             ShopifyClientConfig shopifyConfig,
                             HttpClient httpClient,
                             ObjectMapper objectMapper) {
         this.productRepository = productRepository;
+        this.productVariantRepository = productVariantRepository;
+        this.inventoryLevelRepository = inventoryLevelRepository;
+        this.storeSettingService = storeSettingService;
+        this.sseNotificationService = sseNotificationService;
         this.shopifyConfig = shopifyConfig;
         this.httpClient = httpClient;
         this.objectMapper = objectMapper;
@@ -40,7 +52,7 @@ public class InventoryService {
 
     private static final String GRAPHQL_QUERY = """
         {
-          "query": "query { products(first: 50) { nodes { id title vendor productType status featuredImage { url } variants(first: 50) { nodes { id title sku price inventoryItem { inventoryLevels(first: 10) { nodes { location { id name } quantities(names: [\\"available\\"]) { name quantity } } } } } } } } }"
+          "query": "query { products(first: 50) { nodes { id title vendor productType status featuredImage { url } variants(first: 50) { nodes { id title sku price inventoryItem { id inventoryLevels(first: 10) { nodes { location { id name } quantities(names: [\\"available\\"]) { name quantity } } } } } } } } }"
         }
         """;
 
@@ -65,6 +77,14 @@ public class InventoryService {
                     ShopifyData.GraphQLResponse.class
             );
 
+            Map<String, Integer> existingThresholds = new HashMap<>();
+            List<ProductVariant> allExistingVariants = productVariantRepository.findAll();
+            for (ProductVariant v : allExistingVariants) {
+                if (v.getAlertThreshold() != null) {
+                    existingThresholds.put(v.getId(), v.getAlertThreshold());
+                }
+            }
+
             List<Product> productsToSave = new ArrayList<>();
 
             for (ShopifyData.ProductNode pNode : graphQLResponse.data().products().nodes()) {
@@ -87,6 +107,14 @@ public class InventoryService {
                                 vNode.sku(),
                                 vNode.price()
                         );
+
+                        if (vNode.inventoryItem() != null) {
+                            variant.setInventoryItemId(vNode.inventoryItem().id());
+                        }
+
+                        if (existingThresholds.containsKey(vNode.id())) {
+                            variant.setAlertThreshold(existingThresholds.get(vNode.id()));
+                        }
 
                         if (vNode.inventoryItem() != null && vNode.inventoryItem().inventoryLevels() != null) {
                             for (ShopifyData.InventoryLevelNode lNode : vNode.inventoryItem().inventoryLevels().nodes()) {
@@ -117,40 +145,171 @@ public class InventoryService {
         }
     }
 
-    @Transactional(readOnly = true)
-    public List<java.util.Map<String, String>> getDistinctLocations() {
-        List<Product> products = productRepository.findAll();
-        java.util.Map<String, String> locationMap = new java.util.HashMap<>();
+    @Transactional
+    public void handleInventoryWebhook(InventoryWebhookPayload payload) {
+        if (payload == null || payload.inventoryItemId() == null) {
+            return;
+        }
 
-        for (Product product : products) {
-            for (ProductVariant variant : product.getVariants()) {
-                for (InventoryLevel level : variant.getInventoryLevels()) {
-                    locationMap.putIfAbsent(level.getLocationId(), level.getLocationName());
-                }
+        String itemIdStr = String.valueOf(payload.inventoryItemId());
+        ProductVariant variant = productVariantRepository.findByInventoryItemIdOrSuffix(itemIdStr).orElse(null);
+
+        if (variant == null) {
+            return;
+        }
+
+        String locationIdStr = String.valueOf(payload.locationId());
+        int newAvailable = payload.available() != null ? payload.available() : 0;
+
+        boolean levelFound = false;
+        for (InventoryLevel level : variant.getInventoryLevels()) {
+            if (level.getLocationId().endsWith(locationIdStr)) {
+                level.setAvailableQuantity(newAvailable);
+                levelFound = true;
+                break;
             }
         }
 
-        List<java.util.Map<String, String>> result = new java.util.ArrayList<>();
-        for (java.util.Map.Entry<String, String> entry : locationMap.entrySet()) {
-            result.add(java.util.Map.of("id", entry.getKey(), "name", entry.getValue()));
+        if (!levelFound) {
+            InventoryLevel newLevel = new InventoryLevel(
+                    "gid://shopify/Location/" + locationIdStr,
+                    "Location " + locationIdStr,
+                    newAvailable
+            );
+            variant.addInventoryLevel(newLevel);
+        }
+
+        productVariantRepository.save(variant);
+
+        int totalStock = 0;
+        for (InventoryLevel level : variant.getInventoryLevels()) {
+            totalStock += level.getAvailableQuantity();
+        }
+
+        int threshold = variant.getAlertThreshold() != null
+                ? variant.getAlertThreshold()
+                : storeSettingService.getLowInventoryThreshold();
+
+        boolean isLow = totalStock < threshold;
+
+        StockUpdateEvent event = new StockUpdateEvent(
+                variant.getId(),
+                variant.getTitle(),
+                variant.getProduct() != null ? variant.getProduct().getTitle() : "",
+                totalStock,
+                isLow
+        );
+
+        sseNotificationService.broadcast(event);
+    }
+
+    @Transactional(readOnly = true)
+    public List<LocationDto> getDistinctLocations() {
+        List<LocationProjection> projections = inventoryLevelRepository.findDistinctLocations();
+        List<LocationDto> result = new ArrayList<>();
+        for (LocationProjection p : projections) {
+            result.add(new LocationDto(p.getLocationId(), p.getLocationName()));
         }
         return result;
     }
 
     @Transactional(readOnly = true)
-    public Page<ProductResponse> getProducts(int page, int size, String locationId, int threshold) {
-        PageRequest pageRequest = PageRequest.of(page, size);
-        Page<Product> productPage = productRepository.findAll(pageRequest);
+    public MetricsResponse getInventoryMetrics(String locationId, Integer thresholdParam) {
+        int threshold = thresholdParam != null ? thresholdParam : storeSettingService.getLowInventoryThreshold();
+        boolean isAllLocations = locationId == null || locationId.equalsIgnoreCase("ALL");
+        long count = isAllLocations
+                ? productRepository.countLowStockProducts(threshold)
+                : productRepository.countLowStockProductsByLocation(locationId, threshold);
 
-        List<ProductResponse> responseList = productPage.getContent().stream()
-                .map(product -> mapToProductResponse(product, locationId, threshold))
-                .toList();
-
-        return new PageImpl<>(responseList, pageRequest, productPage.getTotalElements());
+        return new MetricsResponse(count, threshold);
     }
 
-    private ProductResponse mapToProductResponse(Product product, String locationId, int threshold) {
+    @Transactional(readOnly = true)
+    public Page<ProductResponse> getProducts(int page, int size, String locationId, Integer thresholdParam, boolean lowStockOnly) {
+        PageRequest pageRequest = PageRequest.of(page, size);
+        int globalThreshold = thresholdParam != null ? thresholdParam : storeSettingService.getLowInventoryThreshold();
+        boolean isAllLocations = locationId == null || locationId.equalsIgnoreCase("ALL");
+
+        Page<String> pagedIds;
+        if (lowStockOnly) {
+            pagedIds = isAllLocations
+                    ? productRepository.findLowStockProductIds(globalThreshold, pageRequest)
+                    : productRepository.findLowStockProductIdsByLocation(locationId, globalThreshold, pageRequest);
+        } else {
+            pagedIds = isAllLocations
+                    ? productRepository.findAllProductIds(pageRequest)
+                    : productRepository.findAllProductIdsByLocation(locationId, pageRequest);
+        }
+
+        if (pagedIds.isEmpty()) {
+            return new PageImpl<>(Collections.emptyList(), pageRequest, 0);
+        }
+
+        List<Product> products = productRepository.findProductsWithDetailsByIds(pagedIds.getContent());
+
+        Map<String, Product> productMap = new HashMap<>();
+        for (Product product : products) {
+            productMap.put(product.getId(), product);
+        }
+
+        List<ProductResponse> content = new ArrayList<>();
+        for (String id : pagedIds.getContent()) {
+            Product product = productMap.get(id);
+            if (product != null) {
+                content.add(mapToProductResponse(product, locationId, globalThreshold));
+            }
+        }
+
+        return new PageImpl<>(content, pageRequest, pagedIds.getTotalElements());
+    }
+
+    @Transactional(readOnly = true)
+    public List<CustomThresholdVariantDto> getVariantsWithCustomThreshold() {
+        List<ProductVariant> variants = productVariantRepository.findVariantsWithCustomThreshold();
+        List<CustomThresholdVariantDto> result = new ArrayList<>();
+        for (ProductVariant v : variants) {
+            result.add(new CustomThresholdVariantDto(
+                    v.getId(),
+                    v.getTitle(),
+                    v.getProduct() != null ? v.getProduct().getTitle() : "",
+                    v.getSku(),
+                    v.getPrice(),
+                    v.getAlertThreshold()
+            ));
+        }
+        return result;
+    }
+
+    @Transactional
+    public ProductResponse.VariantResponse updateVariantThreshold(String variantId, Integer threshold) {
+        ProductVariant variant = productVariantRepository.findById(variantId)
+                .orElseThrow(() -> new RuntimeException("Variant not found: " + variantId));
+
+        variant.setAlertThreshold(threshold);
+        productVariantRepository.save(variant);
+
         int totalStock = 0;
+        for (InventoryLevel level : variant.getInventoryLevels()) {
+            totalStock += level.getAvailableQuantity();
+        }
+
+        int effectiveThreshold = threshold != null ? threshold : storeSettingService.getLowInventoryThreshold();
+        boolean isLow = totalStock < effectiveThreshold;
+
+        return new ProductResponse.VariantResponse(
+                variant.getId(),
+                variant.getTitle(),
+                variant.getSku(),
+                variant.getPrice(),
+                totalStock,
+                variant.getAlertThreshold(),
+                isLow
+        );
+    }
+
+    private ProductResponse mapToProductResponse(Product product, String locationId, int globalThreshold) {
+        int totalStock = 0;
+        boolean hasAnyLowVariant = false;
         List<ProductResponse.VariantResponse> variantResponses = new ArrayList<>();
 
         for (ProductVariant variant : product.getVariants()) {
@@ -161,16 +320,28 @@ public class InventoryService {
                 }
             }
             totalStock += variantStock;
+
+            int effectiveVariantThreshold = variant.getAlertThreshold() != null
+                    ? variant.getAlertThreshold()
+                    : globalThreshold;
+
+            boolean isVariantLow = variantStock < effectiveVariantThreshold;
+            if (isVariantLow) {
+                hasAnyLowVariant = true;
+            }
+
             variantResponses.add(new ProductResponse.VariantResponse(
                     variant.getId(),
                     variant.getTitle(),
                     variant.getSku(),
                     variant.getPrice(),
-                    variantStock
+                    variantStock,
+                    variant.getAlertThreshold(),
+                    isVariantLow
             ));
         }
 
-        boolean isLow = totalStock < threshold;
+        boolean isOverallLow = totalStock < globalThreshold || hasAnyLowVariant;
 
         return new ProductResponse(
                 product.getId(),
@@ -180,7 +351,7 @@ public class InventoryService {
                 product.getStatus(),
                 product.getImageUrl(),
                 totalStock,
-                isLow,
+                isOverallLow,
                 variantResponses
         );
     }

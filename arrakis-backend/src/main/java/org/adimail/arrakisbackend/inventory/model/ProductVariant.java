@@ -1,15 +1,15 @@
 package org.adimail.arrakisbackend.inventory.model;
 
 import jakarta.persistence.*;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "product_variants")
 public class ProductVariant {
 
     @Id
-    private String id; // Shopify Variant GID: gid://shopify/ProductVariant/...
+    private String id;
 
     @Column(nullable = false)
     private String title;
@@ -17,12 +17,18 @@ public class ProductVariant {
     private String sku;
     private String price;
 
+    @Column(name = "inventory_item_id")
+    private String inventoryItemId;
+
+    @Column(name = "alert_threshold")
+    private Integer alertThreshold;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
 
     @OneToMany(mappedBy = "variant", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<InventoryLevel> inventoryLevels = new ArrayList<>();
+    private Set<InventoryLevel> inventoryLevels = new LinkedHashSet<>();
 
     public ProductVariant() {}
 
@@ -38,7 +44,6 @@ public class ProductVariant {
         level.setVariant(this);
     }
 
-    // Getters and Setters
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
 
@@ -51,9 +56,15 @@ public class ProductVariant {
     public String getPrice() { return price; }
     public void setPrice(String price) { this.price = price; }
 
+    public String getInventoryItemId() { return inventoryItemId; }
+    public void setInventoryItemId(String inventoryItemId) { this.inventoryItemId = inventoryItemId; }
+
+    public Integer getAlertThreshold() { return alertThreshold; }
+    public void setAlertThreshold(Integer alertThreshold) { this.alertThreshold = alertThreshold; }
+
     public Product getProduct() { return product; }
     public void setProduct(Product product) { this.product = product; }
 
-    public List<InventoryLevel> getInventoryLevels() { return inventoryLevels; }
-    public void setInventoryLevels(List<InventoryLevel> inventoryLevels) { this.inventoryLevels = inventoryLevels; }
+    public Set<InventoryLevel> getInventoryLevels() { return inventoryLevels; }
+    public void setInventoryLevels(Set<InventoryLevel> inventoryLevels) { this.inventoryLevels = inventoryLevels; }
 }
