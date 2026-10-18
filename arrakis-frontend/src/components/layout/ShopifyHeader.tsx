@@ -82,7 +82,7 @@ export const ShopifyHeader: React.FC = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {!imgError ? (
             <img
-              src="/logo.svg"
+              src="/favicon.svg"
               alt="Arrakis Logo"
               onError={() => setImgError(true)}
               style={{ width: 26, height: 26, objectFit: 'contain' }}

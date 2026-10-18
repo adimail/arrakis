@@ -1,5 +1,5 @@
 import React from 'react'
-import { Table, Tag, Typography, Switch, Tooltip } from 'antd'
+import { Table, Tag, Typography, Switch, Tooltip, Image } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import {
   PictureOutlined,
@@ -113,6 +113,7 @@ export const ProductTable: React.FC = () => {
         return (
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div
+              onClick={(e) => e.stopPropagation()}
               style={{
                 width: 38,
                 height: 38,
@@ -127,10 +128,15 @@ export const ProductTable: React.FC = () => {
               }}
             >
               {record.imageUrl ? (
-                <img
+                <Image
                   src={record.imageUrl}
                   alt={record.title}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  width={38}
+                  height={38}
+                  style={{ objectFit: 'cover' }}
+                  preview={{
+                    mask: null,
+                  }}
                 />
               ) : (
                 <PictureOutlined style={{ color: '#8c9196', fontSize: 18 }} />

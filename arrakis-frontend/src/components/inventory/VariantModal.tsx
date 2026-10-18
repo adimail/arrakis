@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Modal, Table, Button, Typography, InputNumber, Tag, Tooltip, message } from 'antd'
+import { Modal, Table, Button, Typography, InputNumber, Tag, Tooltip, Image, message } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import {
   CheckOutlined,
@@ -236,18 +236,27 @@ export const VariantModal: React.FC = () => {
       title={
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {product?.imageUrl ? (
-            <img
-              src={product.imageUrl}
-              alt={product.title}
+            <div
               style={{
                 width: 40,
                 height: 40,
                 borderRadius: 6,
                 border: '1px solid #e1e3e5',
-                objectFit: 'cover',
+                overflow: 'hidden',
                 flexShrink: 0,
               }}
-            />
+            >
+              <Image
+                src={product.imageUrl}
+                alt={product.title}
+                width={40}
+                height={40}
+                style={{ objectFit: 'cover' }}
+                preview={{
+                  mask: null,
+                }}
+              />
+            </div>
           ) : (
             <div
               style={{
