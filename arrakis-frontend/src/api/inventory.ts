@@ -10,6 +10,14 @@ export type MetricsResponse = components['schemas']['MetricsResponse']
 export type SyncResponse = components['schemas']['SyncResponse']
 export type SettingResponse = components['schemas']['SettingDto']
 
+export async function checkHealth(): Promise<{ status: string }> {
+  const response = await fetch('/api/health')
+  if (!response.ok) {
+    throw new Error('Health check failed')
+  }
+  return response.json()
+}
+
 export async function fetchProducts(
   page: number,
   locationId: string,

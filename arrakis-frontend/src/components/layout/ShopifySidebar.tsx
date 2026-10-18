@@ -1,10 +1,24 @@
 import React from 'react'
 import { HomeOutlined, SettingOutlined } from '@ant-design/icons'
+import { Badge, Typography } from 'antd'
+import { useQuery } from '@tanstack/react-query'
+import { checkHealth } from '../../api/inventory'
 import { useInventoryStore } from '../../store/useInventoryStore'
+
+const { Text } = Typography
 
 export const ShopifySidebar: React.FC = () => {
   const activeTab = useInventoryStore((state) => state.activeTab)
   const setActiveTab = useInventoryStore((state) => state.setActiveTab)
+
+  const { data: health, isError } = useQuery({
+    queryKey: ['health'],
+    queryFn: checkHealth,
+    refetchInterval: 15000,
+    retry: 1,
+  })
+
+  const isNominal = !isError && health?.status === 'UP'
 
   return (
     <aside
@@ -74,6 +88,25 @@ export const ShopifySidebar: React.FC = () => {
           <SettingOutlined style={{ fontSize: 16 }} />
           Settings
         </button>
+      </div>
+
+      <div
+        style={{
+          marginTop: 'auto',
+          padding: '10px 12px',
+          borderTop: '1px solid #e1e3e5',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+        }}
+      >
+        <Badge status={isNominal ? 'success' : 'error'} />
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <Text style={{ fontSize: 11, color: '#6d7175', lineHeight: 1.2 }}>Backend</Text>
+          <Text strong style={{ fontSize: 12, color: isNominal ? '#0e6245' : '#d72c0d', lineHeight: 1.2 }}>
+            {isNominal ? 'Nominal' : 'Offline'}
+          </Text>
+        </div>
       </div>
     </aside>
   )
