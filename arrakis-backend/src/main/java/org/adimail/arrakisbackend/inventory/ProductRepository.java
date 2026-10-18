@@ -46,20 +46,30 @@ public interface ProductRepository extends JpaRepository<Product, String> {
             SELECT p.id
             FROM products p
             JOIN product_variants pv ON pv.product_id = p.id
-            LEFT JOIN inventory_levels il ON il.variant_id = pv.id
+            LEFT JOIN (
+                SELECT variant_id, SUM(COALESCE(available_quantity, 0)) AS variant_stock
+                FROM inventory_levels
+                GROUP BY variant_id
+            ) vs ON vs.variant_id = pv.id
             GROUP BY p.id
-            HAVING SUM(COALESCE(il.available_quantity, 0)) < :threshold
-                OR MAX(CASE WHEN (SELECT SUM(COALESCE(il2.available_quantity, 0)) FROM inventory_levels il2 WHERE il2.variant_id = pv.id) < COALESCE(pv.alert_threshold, :threshold) THEN 1 ELSE 0 END) = 1
+            HAVING SUM(COALESCE(vs.variant_stock, 0)) < :threshold
+                OR MAX(CASE WHEN COALESCE(vs.variant_stock, 0) < COALESCE(pv.alert_threshold, :threshold) THEN 1 ELSE 0 END) = 1
             ORDER BY p.title ASC
         """,
             countQuery = """
-            SELECT COUNT(DISTINCT p.id)
-            FROM products p
-            JOIN product_variants pv ON pv.product_id = p.id
-            LEFT JOIN inventory_levels il ON il.variant_id = pv.id
-            GROUP BY p.id
-            HAVING SUM(COALESCE(il.available_quantity, 0)) < :threshold
-                OR MAX(CASE WHEN (SELECT SUM(COALESCE(il2.available_quantity, 0)) FROM inventory_levels il2 WHERE il2.variant_id = pv.id) < COALESCE(pv.alert_threshold, :threshold) THEN 1 ELSE 0 END) = 1
+            SELECT COUNT(DISTINCT sub.id) FROM (
+                SELECT p.id
+                FROM products p
+                JOIN product_variants pv ON pv.product_id = p.id
+                LEFT JOIN (
+                    SELECT variant_id, SUM(COALESCE(available_quantity, 0)) AS variant_stock
+                    FROM inventory_levels
+                    GROUP BY variant_id
+                ) vs ON vs.variant_id = pv.id
+                GROUP BY p.id
+                HAVING SUM(COALESCE(vs.variant_stock, 0)) < :threshold
+                    OR MAX(CASE WHEN COALESCE(vs.variant_stock, 0) < COALESCE(pv.alert_threshold, :threshold) THEN 1 ELSE 0 END) = 1
+            ) sub
         """,
             nativeQuery = true
     )
@@ -70,20 +80,32 @@ public interface ProductRepository extends JpaRepository<Product, String> {
             SELECT p.id
             FROM products p
             JOIN product_variants pv ON pv.product_id = p.id
-            LEFT JOIN inventory_levels il ON il.variant_id = pv.id AND il.location_id = :locationId
+            LEFT JOIN (
+                SELECT variant_id, SUM(COALESCE(available_quantity, 0)) AS variant_stock
+                FROM inventory_levels
+                WHERE location_id = :locationId
+                GROUP BY variant_id
+            ) vs ON vs.variant_id = pv.id
             GROUP BY p.id
-            HAVING SUM(COALESCE(il.available_quantity, 0)) < :threshold
-                OR MAX(CASE WHEN (SELECT SUM(COALESCE(il2.available_quantity, 0)) FROM inventory_levels il2 WHERE il2.variant_id = pv.id AND il2.location_id = :locationId) < COALESCE(pv.alert_threshold, :threshold) THEN 1 ELSE 0 END) = 1
+            HAVING SUM(COALESCE(vs.variant_stock, 0)) < :threshold
+                OR MAX(CASE WHEN COALESCE(vs.variant_stock, 0) < COALESCE(pv.alert_threshold, :threshold) THEN 1 ELSE 0 END) = 1
             ORDER BY p.title ASC
         """,
             countQuery = """
-            SELECT COUNT(DISTINCT p.id)
-            FROM products p
-            JOIN product_variants pv ON pv.product_id = p.id
-            LEFT JOIN inventory_levels il ON il.variant_id = pv.id AND il.location_id = :locationId
-            GROUP BY p.id
-            HAVING SUM(COALESCE(il.available_quantity, 0)) < :threshold
-                OR MAX(CASE WHEN (SELECT SUM(COALESCE(il2.available_quantity, 0)) FROM inventory_levels il2 WHERE il2.variant_id = pv.id AND il2.location_id = :locationId) < COALESCE(pv.alert_threshold, :threshold) THEN 1 ELSE 0 END) = 1
+            SELECT COUNT(DISTINCT sub.id) FROM (
+                SELECT p.id
+                FROM products p
+                JOIN product_variants pv ON pv.product_id = p.id
+                LEFT JOIN (
+                    SELECT variant_id, SUM(COALESCE(available_quantity, 0)) AS variant_stock
+                    FROM inventory_levels
+                    WHERE location_id = :locationId
+                    GROUP BY variant_id
+                ) vs ON vs.variant_id = pv.id
+                GROUP BY p.id
+                HAVING SUM(COALESCE(vs.variant_stock, 0)) < :threshold
+                    OR MAX(CASE WHEN COALESCE(vs.variant_stock, 0) < COALESCE(pv.alert_threshold, :threshold) THEN 1 ELSE 0 END) = 1
+            ) sub
         """,
             nativeQuery = true
     )
@@ -95,10 +117,14 @@ public interface ProductRepository extends JpaRepository<Product, String> {
                 SELECT p.id
                 FROM products p
                 JOIN product_variants pv ON pv.product_id = p.id
-                LEFT JOIN inventory_levels il ON il.variant_id = pv.id
+                LEFT JOIN (
+                    SELECT variant_id, SUM(COALESCE(available_quantity, 0)) AS variant_stock
+                    FROM inventory_levels
+                    GROUP BY variant_id
+                ) vs ON vs.variant_id = pv.id
                 GROUP BY p.id
-                HAVING SUM(COALESCE(il.available_quantity, 0)) < :threshold
-                    OR MAX(CASE WHEN (SELECT SUM(COALESCE(il2.available_quantity, 0)) FROM inventory_levels il2 WHERE il2.variant_id = pv.id) < COALESCE(pv.alert_threshold, :threshold) THEN 1 ELSE 0 END) = 1
+                HAVING SUM(COALESCE(vs.variant_stock, 0)) < :threshold
+                    OR MAX(CASE WHEN COALESCE(vs.variant_stock, 0) < COALESCE(pv.alert_threshold, :threshold) THEN 1 ELSE 0 END) = 1
             ) sub
         """,
             nativeQuery = true
@@ -111,10 +137,15 @@ public interface ProductRepository extends JpaRepository<Product, String> {
                 SELECT p.id
                 FROM products p
                 JOIN product_variants pv ON pv.product_id = p.id
-                LEFT JOIN inventory_levels il ON il.variant_id = pv.id AND il.location_id = :locationId
+                LEFT JOIN (
+                    SELECT variant_id, SUM(COALESCE(available_quantity, 0)) AS variant_stock
+                    FROM inventory_levels
+                    WHERE location_id = :locationId
+                    GROUP BY variant_id
+                ) vs ON vs.variant_id = pv.id
                 GROUP BY p.id
-                HAVING SUM(COALESCE(il.available_quantity, 0)) < :threshold
-                    OR MAX(CASE WHEN (SELECT SUM(COALESCE(il2.available_quantity, 0)) FROM inventory_levels il2 WHERE il2.variant_id = pv.id AND il2.location_id = :locationId) < COALESCE(pv.alert_threshold, :threshold) THEN 1 ELSE 0 END) = 1
+                HAVING SUM(COALESCE(vs.variant_stock, 0)) < :threshold
+                    OR MAX(CASE WHEN COALESCE(vs.variant_stock, 0) < COALESCE(pv.alert_threshold, :threshold) THEN 1 ELSE 0 END) = 1
             ) sub
         """,
             nativeQuery = true

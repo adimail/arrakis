@@ -6,8 +6,8 @@ import org.adimail.arrakisbackend.inventory.dto.*;
 import org.adimail.arrakisbackend.inventory.model.InventoryLevel;
 import org.adimail.arrakisbackend.inventory.model.Product;
 import org.adimail.arrakisbackend.inventory.model.ProductVariant;
+import org.adimail.arrakisbackend.inventory.model.StoreSetting;
 import org.adimail.arrakisbackend.notification.SseNotificationService;
-import org.adimail.arrakisbackend.settings.StoreSettingService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -23,10 +23,13 @@ import java.util.*;
 @Service
 public class InventoryService {
 
+    private static final String DEFAULT_THRESHOLD_KEY = "low_inventory_threshold";
+    private static final String DEFAULT_THRESHOLD_VALUE = "10";
+
     private final ProductRepository productRepository;
     private final ProductVariantRepository productVariantRepository;
     private final InventoryLevelRepository inventoryLevelRepository;
-    private final StoreSettingService storeSettingService;
+    private final StoreSettingRepository storeSettingRepository;
     private final SseNotificationService sseNotificationService;
     private final ShopifyClientConfig shopifyConfig;
     private final HttpClient httpClient;
@@ -35,7 +38,7 @@ public class InventoryService {
     public InventoryService(ProductRepository productRepository,
                             ProductVariantRepository productVariantRepository,
                             InventoryLevelRepository inventoryLevelRepository,
-                            StoreSettingService storeSettingService,
+                            StoreSettingRepository storeSettingRepository,
                             SseNotificationService sseNotificationService,
                             ShopifyClientConfig shopifyConfig,
                             HttpClient httpClient,
@@ -43,7 +46,7 @@ public class InventoryService {
         this.productRepository = productRepository;
         this.productVariantRepository = productVariantRepository;
         this.inventoryLevelRepository = inventoryLevelRepository;
-        this.storeSettingService = storeSettingService;
+        this.storeSettingRepository = storeSettingRepository;
         this.sseNotificationService = sseNotificationService;
         this.shopifyConfig = shopifyConfig;
         this.httpClient = httpClient;
@@ -55,6 +58,31 @@ public class InventoryService {
           "query": "query { products(first: 50) { nodes { id title vendor productType status featuredImage { url } variants(first: 50) { nodes { id title sku price inventoryItem { id inventoryLevels(first: 10) { nodes { location { id name } quantities(names: [\\"available\\"]) { name quantity } } } } } } } } }"
         }
         """;
+
+    private String extractNumericId(String gidOrNumber) {
+        if (gidOrNumber == null) {
+            return null;
+        }
+        String trimmed = gidOrNumber.trim();
+        int lastSlashIndex = trimmed.lastIndexOf('/');
+        if (lastSlashIndex != -1 && lastSlashIndex < trimmed.length() - 1) {
+            return trimmed.substring(lastSlashIndex + 1);
+        }
+        return trimmed;
+    }
+
+    @Transactional(readOnly = true)
+    public int getLowInventoryThreshold() {
+        return storeSettingRepository.findById(DEFAULT_THRESHOLD_KEY)
+                .map(setting -> Integer.parseInt(setting.getValue()))
+                .orElse(Integer.parseInt(DEFAULT_THRESHOLD_VALUE));
+    }
+
+    @Transactional
+    public void setLowInventoryThreshold(int threshold) {
+        StoreSetting setting = new StoreSetting(DEFAULT_THRESHOLD_KEY, String.valueOf(threshold));
+        storeSettingRepository.save(setting);
+    }
 
     @Transactional
     public int syncFromShopify() {
@@ -109,7 +137,7 @@ public class InventoryService {
                         );
 
                         if (vNode.inventoryItem() != null) {
-                            variant.setInventoryItemId(vNode.inventoryItem().id());
+                            variant.setInventoryItemId(extractNumericId(vNode.inventoryItem().id()));
                         }
 
                         if (existingThresholds.containsKey(vNode.id())) {
@@ -151,8 +179,8 @@ public class InventoryService {
             return;
         }
 
-        String itemIdStr = String.valueOf(payload.inventoryItemId());
-        ProductVariant variant = productVariantRepository.findByInventoryItemIdOrSuffix(itemIdStr).orElse(null);
+        String itemIdStr = extractNumericId(String.valueOf(payload.inventoryItemId()));
+        ProductVariant variant = productVariantRepository.findByInventoryItemId(itemIdStr).orElse(null);
 
         if (variant == null) {
             return;
@@ -188,7 +216,7 @@ public class InventoryService {
 
         int threshold = variant.getAlertThreshold() != null
                 ? variant.getAlertThreshold()
-                : storeSettingService.getLowInventoryThreshold();
+                : getLowInventoryThreshold();
 
         boolean isLow = totalStock < threshold;
 
@@ -215,7 +243,7 @@ public class InventoryService {
 
     @Transactional(readOnly = true)
     public MetricsResponse getInventoryMetrics(String locationId, Integer thresholdParam) {
-        int threshold = thresholdParam != null ? thresholdParam : storeSettingService.getLowInventoryThreshold();
+        int threshold = thresholdParam != null ? thresholdParam : getLowInventoryThreshold();
         boolean isAllLocations = locationId == null || locationId.equalsIgnoreCase("ALL");
         long count = isAllLocations
                 ? productRepository.countLowStockProducts(threshold)
@@ -227,7 +255,7 @@ public class InventoryService {
     @Transactional(readOnly = true)
     public Page<ProductResponse> getProducts(int page, int size, String locationId, Integer thresholdParam, boolean lowStockOnly) {
         PageRequest pageRequest = PageRequest.of(page, size);
-        int globalThreshold = thresholdParam != null ? thresholdParam : storeSettingService.getLowInventoryThreshold();
+        int globalThreshold = thresholdParam != null ? thresholdParam : getLowInventoryThreshold();
         boolean isAllLocations = locationId == null || locationId.equalsIgnoreCase("ALL");
 
         Page<String> pagedIds;
@@ -293,7 +321,7 @@ public class InventoryService {
             totalStock += level.getAvailableQuantity();
         }
 
-        int effectiveThreshold = threshold != null ? threshold : storeSettingService.getLowInventoryThreshold();
+        int effectiveThreshold = threshold != null ? threshold : getLowInventoryThreshold();
         boolean isLow = totalStock < effectiveThreshold;
 
         return new ProductResponse.VariantResponse(

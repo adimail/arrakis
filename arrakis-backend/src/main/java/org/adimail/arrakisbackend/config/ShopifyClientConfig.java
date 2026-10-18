@@ -15,13 +15,16 @@ public class ShopifyClientConfig {
     @Value("${shopify.access-token}")
     private String accessToken;
 
+    @Value("${shopify.api-version:2025-01}")
+    private String apiVersion;
+
     @Bean
     public HttpClient httpClient() {
         return HttpClient.newHttpClient();
     }
 
     public String getGraphQLEndpoint() {
-        return "https://" + storeDomain + "/admin/api/2024-01/graphql.json";
+        return "https://" + storeDomain + "/admin/api/" + apiVersion + "/graphql.json";
     }
 
     public String getAccessToken() {

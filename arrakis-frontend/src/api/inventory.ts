@@ -13,7 +13,7 @@ export type SettingResponse = components['schemas']['SettingDto']
 export async function fetchProducts(
   page: number,
   locationId: string,
-  threshold: number,
+  threshold?: number,
   lowStockOnly: boolean = false
 ): Promise<PageProductResponse> {
   const { data, error } = await api.GET('/api/products', {
@@ -33,7 +33,7 @@ export async function fetchProducts(
 
 export async function fetchMetrics(
   locationId: string,
-  threshold: number
+  threshold?: number
 ): Promise<MetricsResponse> {
   const { data, error } = await api.GET('/api/metrics', {
     params: {
@@ -66,7 +66,7 @@ export async function fetchSettings(): Promise<SettingResponse> {
 }
 
 export async function updateSettings(threshold: number): Promise<SettingResponse> {
-  const { data, error } = await api.POST('/api/settings', {
+  const { data, error } = await api.PUT('/api/settings', {
     body: { threshold },
   })
   if (error) throw error
@@ -84,10 +84,10 @@ export async function updateVariantThreshold(
   threshold: number | null
 ): Promise<VariantResponse> {
   const { data, error } = await api.PUT('/api/variants/threshold', {
-    params: {
-      query: { variantId },
+    body: {
+      variantId,
+      threshold: threshold ?? undefined,
     },
-    body: { threshold: threshold ?? undefined },
   })
   if (error) throw error
   return data

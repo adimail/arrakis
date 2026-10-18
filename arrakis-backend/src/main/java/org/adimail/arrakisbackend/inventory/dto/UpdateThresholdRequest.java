@@ -1,3 +1,6 @@
 package org.adimail.arrakisbackend.inventory.dto;
 
-public record UpdateThresholdRequest(Integer threshold) {}
+public record UpdateThresholdRequest(
+        String variantId,
+        Integer threshold
+) {}

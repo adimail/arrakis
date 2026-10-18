@@ -15,6 +15,6 @@ public interface ProductVariantRepository extends JpaRepository<ProductVariant, 
     @Query("SELECT pv FROM ProductVariant pv JOIN FETCH pv.product p WHERE pv.alertThreshold IS NOT NULL ORDER BY p.title ASC, pv.title ASC")
     List<ProductVariant> findVariantsWithCustomThreshold();
 
-    @Query("SELECT pv FROM ProductVariant pv JOIN FETCH pv.product p LEFT JOIN FETCH pv.inventoryLevels WHERE pv.inventoryItemId = :id OR pv.inventoryItemId LIKE %:id")
-    Optional<ProductVariant> findByInventoryItemIdOrSuffix(@Param("id") String id);
+    @Query("SELECT pv FROM ProductVariant pv JOIN FETCH pv.product p LEFT JOIN FETCH pv.inventoryLevels WHERE pv.inventoryItemId = :id")
+    Optional<ProductVariant> findByInventoryItemId(@Param("id") String id);
 }

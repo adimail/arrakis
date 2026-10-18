@@ -4,6 +4,8 @@ import { SyncOutlined } from '@ant-design/icons'
 import { useQuery, useIsMutating } from '@tanstack/react-query'
 import { fetchLocations } from '../../api/inventory'
 import { useInventoryStore } from '../../store/useInventoryStore'
+import { getInitials } from '../../lib/utils'
+import { ALL_LOCATIONS_KEY } from '../../lib/constants'
 
 const { Text } = Typography
 
@@ -22,21 +24,12 @@ export const ShopifyHeader: React.FC = () => {
   })
 
   const locationOptions = [
-    { value: 'ALL', label: 'All Locations' },
+    { value: ALL_LOCATIONS_KEY, label: 'All Locations' },
     ...locations.map((loc) => ({ value: loc.id || '', label: loc.name || '' })),
   ]
 
-  const getInitials = (name: string) => {
-    if (!name || name === 'ALL') return 'AL'
-    const words = name.trim().split(/\s+/)
-    if (words.length === 1) {
-      return words[0].substring(0, 2).toUpperCase()
-    }
-    return (words[0][0] + words[1][0]).toUpperCase()
-  }
-
   const selectedLocationName =
-    locationId === 'ALL'
+    locationId === ALL_LOCATIONS_KEY
       ? 'All Locations'
       : locations.find((l) => l.id === locationId)?.name || 'All Locations'
 

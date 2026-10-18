@@ -5,7 +5,12 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 
 @Entity
-@Table(name = "product_variants")
+@Table(
+        name = "product_variants",
+        indexes = {
+                @Index(name = "idx_variant_inventory_item", columnList = "inventory_item_id")
+        }
+)
 public class ProductVariant {
 
     @Id

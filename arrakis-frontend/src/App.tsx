@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { notification } from 'antd'
 import { ShopifyHeader } from './components/layout/ShopifyHeader'
 import { ShopifySidebar } from './components/layout/ShopifySidebar'
@@ -7,26 +7,22 @@ import { ProductTable } from './components/inventory/ProductTable'
 import { VariantModal } from './components/inventory/VariantModal'
 import { SyncModal } from './components/inventory/SyncModal'
 import { ThresholdSettings } from './components/settings/ThresholdSettings'
-import { fetchSettings } from './api/inventory'
 import { useInventoryStore } from './store/useInventoryStore'
 
 export default function App() {
   const queryClient = useQueryClient()
   const activeTab = useInventoryStore((state) => state.activeTab)
 
-  const { data: settings } = useQuery({
-    queryKey: ['settings'],
-    queryFn: fetchSettings,
-  })
-
   useEffect(() => {
-    if (settings?.threshold !== undefined) {
-      useInventoryStore.setState({ threshold: settings.threshold })
+    const handlePopState = () => {
+      useInventoryStore.getState().syncFromUrl()
     }
-  }, [settings])
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
 
   useEffect(() => {
-    const eventSource = new EventSource('http://localhost:8080/api/inventory/stream')
+    const eventSource = new EventSource('/api/inventory/stream')
 
     eventSource.addEventListener('stock-update', (event: MessageEvent) => {
       try {
