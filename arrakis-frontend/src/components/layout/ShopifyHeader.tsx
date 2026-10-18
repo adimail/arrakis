@@ -23,7 +23,7 @@ export const ShopifyHeader: React.FC = () => {
 
   const locationOptions = [
     { value: 'ALL', label: 'All Locations' },
-    ...locations.map((loc) => ({ value: loc.id, label: loc.name })),
+    ...locations.map((loc) => ({ value: loc.id || '', label: loc.name || '' })),
   ]
 
   const getInitials = (name: string) => {
@@ -156,7 +156,7 @@ export const ShopifyHeader: React.FC = () => {
               size="small"
               style={{ minWidth: 160 }}
               popupMatchSelectWidth={false}
-              dropdownStyle={{ minWidth: 220 }}
+              styles={{ popup: { root: { minWidth: 220 } } }}
             />
           </div>
         </div>

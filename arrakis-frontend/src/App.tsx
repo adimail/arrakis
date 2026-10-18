@@ -11,7 +11,6 @@ import { useInventoryStore } from './store/useInventoryStore'
 
 export default function App() {
   const activeTab = useInventoryStore((state) => state.activeTab)
-  const setThreshold = useInventoryStore((state) => state.setThreshold)
 
   const { data: settings } = useQuery({
     queryKey: ['settings'],

@@ -19,9 +19,9 @@ import {
   updateSettings,
   fetchCustomThresholdVariants,
   updateVariantThreshold,
+  type CustomThresholdVariant,
 } from '../../api/inventory'
 import { useInventoryStore } from '../../store/useInventoryStore'
-import { CustomThresholdVariant } from '../../types/inventory'
 
 const { Title, Text } = Typography
 
@@ -53,7 +53,9 @@ export const ThresholdSettings: React.FC = () => {
   useEffect(() => {
     const initialDrafts: Record<string, number> = {}
     for (const item of customVariants) {
-      initialDrafts[item.variantId] = item.alertThreshold
+      if (item.variantId) {
+        initialDrafts[item.variantId] = item.alertThreshold ?? 0
+      }
     }
     setDrafts(initialDrafts)
   }, [customVariants])
@@ -61,7 +63,7 @@ export const ThresholdSettings: React.FC = () => {
   const globalMutation = useMutation({
     mutationFn: (newThreshold: number) => updateSettings(newThreshold),
     onSuccess: (updated) => {
-      setStoreThreshold(updated.threshold)
+      setStoreThreshold(updated.threshold ?? val)
       queryClient.invalidateQueries({ queryKey: ['settings'] })
       queryClient.invalidateQueries({ queryKey: ['products'] })
       queryClient.invalidateQueries({ queryKey: ['metrics'] })
@@ -96,43 +98,47 @@ export const ThresholdSettings: React.FC = () => {
       title: 'Product',
       dataIndex: 'productTitle',
       key: 'productTitle',
-      render: (pTitle: string) => <Text strong style={{ fontSize: 13 }}>{pTitle}</Text>,
+      render: (pTitle?: string) => <Text strong style={{ fontSize: 13 }}>{pTitle || '-'}</Text>,
     },
     {
       title: 'Variant',
       dataIndex: 'variantTitle',
       key: 'variantTitle',
-      render: (vTitle: string) => <Text style={{ fontSize: 13 }}>{vTitle}</Text>,
+      render: (vTitle?: string) => <Text style={{ fontSize: 13 }}>{vTitle || '-'}</Text>,
     },
     {
       title: 'SKU',
       dataIndex: 'sku',
       key: 'sku',
-      render: (sku: string) => <Text type="secondary" style={{ fontSize: 13 }}>{sku || '-'}</Text>,
+      render: (sku?: string) => <Text type="secondary" style={{ fontSize: 13 }}>{sku || '-'}</Text>,
     },
     {
       title: 'Alert Threshold',
       key: 'alertThreshold',
-      render: (_, record) => (
-        <InputNumber
-          min={0}
-          max={10000}
-          value={drafts[record.variantId] ?? record.alertThreshold}
-          onChange={(nextVal) =>
-            setDrafts((prev) => ({
-              ...prev,
-              [record.variantId]: nextVal || 0,
-            }))
-          }
-          style={{ width: 100 }}
-        />
-      ),
+      render: (_, record) => {
+        const id = record.variantId || ''
+        return (
+          <InputNumber
+            min={0}
+            max={10000}
+            value={drafts[id] ?? record.alertThreshold}
+            onChange={(nextVal) =>
+              setDrafts((prev) => ({
+                ...prev,
+                [id]: nextVal || 0,
+              }))
+            }
+            style={{ width: 100 }}
+          />
+        )
+      },
     },
     {
       title: 'Actions',
       key: 'actions',
       render: (_, record) => {
-        const currentDraft = drafts[record.variantId] ?? record.alertThreshold
+        const id = record.variantId || ''
+        const currentDraft = drafts[id] ?? record.alertThreshold ?? 0
         const hasChanged = currentDraft !== record.alertThreshold
 
         return (
@@ -145,7 +151,7 @@ export const ThresholdSettings: React.FC = () => {
                 loading={variantMutation.isPending}
                 onClick={() =>
                   variantMutation.mutate({
-                    variantId: record.variantId,
+                    variantId: id,
                     threshold: currentDraft,
                   })
                 }
@@ -160,7 +166,7 @@ export const ThresholdSettings: React.FC = () => {
               description="Remove custom threshold and inherit global store threshold?"
               onConfirm={() =>
                 variantMutation.mutate({
-                  variantId: record.variantId,
+                  variantId: id,
                   threshold: null,
                 })
               }
@@ -244,7 +250,7 @@ export const ThresholdSettings: React.FC = () => {
             <Table<CustomThresholdVariant>
               rowKey="variantId"
               columns={columns}
-              dataSource={customVariants}
+              dataSource={customVariants as CustomThresholdVariant[]}
               loading={isVariantsLoading}
               pagination={false}
               size="middle"

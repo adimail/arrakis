@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { ProductResponse } from '../types/inventory'
+import type { ProductResponse } from '../api/inventory'
 
 interface InventoryState {
   activeTab: 'home' | 'settings'

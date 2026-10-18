@@ -8,9 +8,8 @@ import {
   SlidersOutlined,
 } from '@ant-design/icons'
 import { useQuery } from '@tanstack/react-query'
-import { fetchProducts, fetchMetrics, fetchLocations } from '../../api/inventory'
+import { fetchProducts, fetchMetrics, fetchLocations, type ProductResponse } from '../../api/inventory'
 import { useInventoryStore } from '../../store/useInventoryStore'
-import { ProductResponse } from '../../types/inventory'
 
 const { Text } = Typography
 
@@ -171,7 +170,7 @@ export const ProductTable: React.FC = () => {
       dataIndex: 'status',
       key: 'status',
       width: 85,
-      render: (status: string) => getStatusTag(status),
+      render: (status?: string) => getStatusTag(status),
     },
     {
       title: 'Inventory',
@@ -206,7 +205,7 @@ export const ProductTable: React.FC = () => {
       key: 'productType',
       minWidth: 120,
       responsive: ['md'],
-      render: (type: string) => (
+      render: (type?: string) => (
         <Text style={{ color: '#202223', fontSize: 13 }}>{type || '-'}</Text>
       ),
     },
@@ -216,7 +215,7 @@ export const ProductTable: React.FC = () => {
       key: 'vendor',
       minWidth: 130,
       responsive: ['md'],
-      render: (vendor: string) => (
+      render: (vendor?: string) => (
         <Text style={{ color: '#202223', fontSize: 13 }}>{vendor || '-'}</Text>
       ),
     },

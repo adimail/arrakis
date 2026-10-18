@@ -1,14 +1,12 @@
 package org.adimail.arrakisbackend.inventory;
 
-import org.adimail.arrakisbackend.inventory.dto.CustomThresholdVariantDto;
-import org.adimail.arrakisbackend.inventory.dto.ProductResponse;
+import org.adimail.arrakisbackend.inventory.dto.*;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
@@ -21,12 +19,12 @@ public class InventoryController {
     }
 
     @PostMapping("/sync")
-    public ResponseEntity<Map<String, Object>> syncInventory() {
+    public ResponseEntity<SyncResponse> syncInventory() {
         int count = inventoryService.syncFromShopify();
-        return ResponseEntity.ok(Map.of(
-                "message", "Inventory sync completed",
-                "syncedProductsCount", count,
-                "syncedAt", Instant.now().toString()
+        return ResponseEntity.ok(new SyncResponse(
+                "Inventory sync completed",
+                count,
+                Instant.now().toString()
         ));
     }
 
@@ -43,7 +41,7 @@ public class InventoryController {
     }
 
     @GetMapping("/metrics")
-    public ResponseEntity<Map<String, Object>> getMetrics(
+    public ResponseEntity<MetricsResponse> getMetrics(
             @RequestParam(defaultValue = "ALL") String locationId,
             @RequestParam(required = false) Integer threshold
     ) {
@@ -55,18 +53,17 @@ public class InventoryController {
         return ResponseEntity.ok(inventoryService.getVariantsWithCustomThreshold());
     }
 
-    @PutMapping("/variants/threshold")
+    @PutMapping("/variants/{variantId}/threshold")
     public ResponseEntity<ProductResponse.VariantResponse> updateVariantThreshold(
-            @RequestParam String variantId,
-            @RequestBody Map<String, Integer> request
+            @PathVariable String variantId,
+            @RequestBody UpdateThresholdRequest request
     ) {
-        Integer threshold = request.get("threshold");
-        ProductResponse.VariantResponse response = inventoryService.updateVariantThreshold(variantId, threshold);
+        ProductResponse.VariantResponse response = inventoryService.updateVariantThreshold(variantId, request.threshold());
         return ResponseEntity.ok(response);
     }
 
     @GetMapping("/locations")
-    public ResponseEntity<List<Map<String, String>>> getLocations() {
+    public ResponseEntity<List<LocationDto>> getLocations() {
         return ResponseEntity.ok(inventoryService.getDistinctLocations());
     }
 }

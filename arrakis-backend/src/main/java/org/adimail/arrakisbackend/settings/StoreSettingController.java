@@ -1,9 +1,8 @@
 package org.adimail.arrakisbackend.settings;
 
+import org.adimail.arrakisbackend.settings.dto.SettingDto;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/settings")
@@ -16,15 +15,14 @@ public class StoreSettingController {
     }
 
     @GetMapping
-    public ResponseEntity<Map<String, Integer>> getSettings() {
+    public ResponseEntity<SettingDto> getSettings() {
         int threshold = service.getLowInventoryThreshold();
-        return ResponseEntity.ok(Map.of("threshold", threshold));
+        return ResponseEntity.ok(new SettingDto(threshold));
     }
 
     @PostMapping
-    public ResponseEntity<Map<String, Integer>> updateSettings(@RequestBody Map<String, Integer> request) {
-        int threshold = request.getOrDefault("threshold", 10);
-        service.setLowInventoryThreshold(threshold);
-        return ResponseEntity.ok(Map.of("threshold", threshold));
+    public ResponseEntity<SettingDto> updateSettings(@RequestBody SettingDto request) {
+        service.setLowInventoryThreshold(request.threshold());
+        return ResponseEntity.ok(new SettingDto(request.threshold()));
     }
 }

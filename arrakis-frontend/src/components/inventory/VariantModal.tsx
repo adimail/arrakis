@@ -2,9 +2,8 @@ import React, { useState, useEffect } from 'react'
 import { Modal, Table, Button, Typography, InputNumber, message } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { updateVariantThreshold } from '../../api/inventory'
+import { updateVariantThreshold, type VariantResponse } from '../../api/inventory'
 import { useInventoryStore } from '../../store/useInventoryStore'
-import { VariantResponse } from '../../types/inventory'
 
 const { Text } = Typography
 
@@ -21,7 +20,9 @@ export const VariantModal: React.FC = () => {
     if (product?.variants) {
       const drafts: Record<string, number | null> = {}
       for (const v of product.variants) {
-        drafts[v.id] = v.alertThreshold ?? null
+        if (v.id) {
+          drafts[v.id] = v.alertThreshold ?? null
+        }
       }
       setThresholdDrafts(drafts)
     }
@@ -33,14 +34,15 @@ export const VariantModal: React.FC = () => {
     onSuccess: (updatedVariant) => {
       message.success('Variant threshold updated')
       queryClient.invalidateQueries({ queryKey: ['products'] })
-      if (product) {
+      if (product && product.variants) {
         const nextVariants = product.variants.map((v) =>
           v.id === updatedVariant.id ? { ...v, ...updatedVariant } : v
         )
         const hasLow = nextVariants.some((v) => v.isLowInventory)
+        const total = product.totalInventory ?? 0
         useInventoryStore.getState().setSelectedProduct({
           ...product,
-          isLowInventory: hasLow || product.totalInventory < globalThreshold,
+          isLowInventory: hasLow || total < globalThreshold,
           variants: nextVariants,
         })
       }
@@ -59,9 +61,9 @@ export const VariantModal: React.FC = () => {
       title: 'Variant',
       dataIndex: 'title',
       key: 'title',
-      render: (title: string) => (
+      render: (title?: string) => (
         <Text style={{ fontWeight: 500, fontSize: 13, color: '#202223' }}>
-          {title}
+          {title || '-'}
         </Text>
       ),
     },
@@ -69,7 +71,7 @@ export const VariantModal: React.FC = () => {
       title: 'SKU',
       dataIndex: 'sku',
       key: 'sku',
-      render: (sku: string) => (
+      render: (sku?: string) => (
         <Text style={{ color: '#6d7175', fontSize: 13 }}>{sku || '-'}</Text>
       ),
     },
@@ -77,7 +79,7 @@ export const VariantModal: React.FC = () => {
       title: 'Price',
       dataIndex: 'price',
       key: 'price',
-      render: (price: string) => (
+      render: (price?: string) => (
         <Text style={{ fontSize: 13 }}>₹{price || '0.00'}</Text>
       ),
     },
@@ -104,7 +106,8 @@ export const VariantModal: React.FC = () => {
       title: 'Custom Alert Threshold',
       key: 'alertThreshold',
       render: (_, record: VariantResponse) => {
-        const draftVal = thresholdDrafts[record.id]
+        const id = record.id || ''
+        const draftVal = thresholdDrafts[id]
         const hasChanged = draftVal !== (record.alertThreshold ?? null)
 
         return (
@@ -117,7 +120,7 @@ export const VariantModal: React.FC = () => {
               onChange={(val) =>
                 setThresholdDrafts((prev) => ({
                   ...prev,
-                  [record.id]: val === undefined ? null : val,
+                  [id]: val === undefined ? null : val,
                 }))
               }
               style={{ width: 130 }}
@@ -129,7 +132,7 @@ export const VariantModal: React.FC = () => {
                 loading={mutation.isPending}
                 onClick={() =>
                   mutation.mutate({
-                    variantId: record.id,
+                    variantId: id,
                     threshold: draftVal ?? null,
                   })
                 }
@@ -177,7 +180,7 @@ export const VariantModal: React.FC = () => {
       <Table<VariantResponse>
         rowKey="id"
         columns={columns}
-        dataSource={product?.variants || []}
+        dataSource={(product?.variants || []) as VariantResponse[]}
         pagination={false}
         scroll={{ x: 'max-content' }}
         size="middle"

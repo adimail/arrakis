@@ -3,7 +3,9 @@ package org.adimail.arrakisbackend.inventory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.adimail.arrakisbackend.config.ShopifyClientConfig;
 import org.adimail.arrakisbackend.inventory.dto.CustomThresholdVariantDto;
+import org.adimail.arrakisbackend.inventory.dto.LocationDto;
 import org.adimail.arrakisbackend.inventory.dto.LocationProjection;
+import org.adimail.arrakisbackend.inventory.dto.MetricsResponse;
 import org.adimail.arrakisbackend.inventory.dto.ProductResponse;
 import org.adimail.arrakisbackend.inventory.dto.ShopifyData;
 import org.adimail.arrakisbackend.inventory.model.InventoryLevel;
@@ -141,27 +143,24 @@ public class InventoryService {
     }
 
     @Transactional(readOnly = true)
-    public List<Map<String, String>> getDistinctLocations() {
+    public List<LocationDto> getDistinctLocations() {
         List<LocationProjection> projections = inventoryLevelRepository.findDistinctLocations();
-        List<Map<String, String>> result = new ArrayList<>();
+        List<LocationDto> result = new ArrayList<>();
         for (LocationProjection p : projections) {
-            result.add(Map.of("id", p.getLocationId(), "name", p.getLocationName()));
+            result.add(new LocationDto(p.getLocationId(), p.getLocationName()));
         }
         return result;
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> getInventoryMetrics(String locationId, Integer thresholdParam) {
+    public MetricsResponse getInventoryMetrics(String locationId, Integer thresholdParam) {
         int threshold = thresholdParam != null ? thresholdParam : storeSettingService.getLowInventoryThreshold();
         boolean isAllLocations = locationId == null || locationId.equalsIgnoreCase("ALL");
         long count = isAllLocations
                 ? productRepository.countLowStockProducts(threshold)
                 : productRepository.countLowStockProductsByLocation(locationId, threshold);
 
-        return Map.of(
-                "lowStockCount", count,
-                "threshold", threshold
-        );
+        return new MetricsResponse(count, threshold);
     }
 
     @Transactional(readOnly = true)
