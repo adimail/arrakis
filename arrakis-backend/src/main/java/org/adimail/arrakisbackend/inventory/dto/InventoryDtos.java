@@ -14,7 +14,7 @@ public final class InventoryDtos {
     public record MetricsResponse(long lowStockCount, int threshold) {}
 
     @Schema(name = "UpdateThresholdRequest")
-    public record UpdateThresholdRequest(String variantId, Integer threshold) {}
+    public record UpdateThresholdRequest(String variantId, Integer threshold, String locationId) {}
 
     @Schema(name = "LocationDto")
     public record LocationDto(String id, String name) {}

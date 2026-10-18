@@ -1,5 +1,6 @@
 package org.adimail.arrakisbackend.inventory;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.adimail.arrakisbackend.config.ShopifyClientConfig;
 import org.adimail.arrakisbackend.inventory.dto.*;
@@ -29,7 +30,7 @@ public class InventoryService {
 
     private static final String GRAPHQL_PAGINATED_QUERY = """
         query($cursor: String) {
-          products(first: 50, after: $cursor) {
+          products(first: 10, after: $cursor) {
             pageInfo {
               hasNextPage
               endCursor
@@ -43,7 +44,7 @@ public class InventoryService {
               featuredImage {
                 url
               }
-              variants(first: 50) {
+              variants(first: 10) {
                 nodes {
                   id
                   title
@@ -51,7 +52,7 @@ public class InventoryService {
                   price
                   inventoryItem {
                     id
-                    inventoryLevels(first: 10) {
+                    inventoryLevels(first: 5) {
                       nodes {
                         location {
                           id
@@ -135,6 +136,7 @@ public class InventoryService {
             }
 
             List<Product> productsToSave = new ArrayList<>();
+            Set<String> incomingProductIds = new HashSet<>();
             String cursor = null;
             boolean hasNextPage = true;
 
@@ -155,16 +157,30 @@ public class InventoryService {
                 HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
                 if (response.statusCode() != 200) {
-                    throw new RuntimeException("Shopify API error: " + response.statusCode() + " - " + response.body());
+                    throw new RuntimeException("Shopify API HTTP error: " + response.statusCode() + " - " + response.body());
                 }
 
-                ShopifyData.GraphQLResponse graphQLResponse = objectMapper.readValue(
-                        response.body(),
+                JsonNode rootNode = objectMapper.readTree(response.body());
+                if (rootNode.has("errors") && !rootNode.get("errors").isEmpty()) {
+                    throw new RuntimeException("Shopify GraphQL error: " + rootNode.get("errors").toString());
+                }
+
+                if (!rootNode.has("data") || rootNode.get("data").isNull()) {
+                    throw new RuntimeException("Shopify response missing data field: " + response.body());
+                }
+
+                ShopifyData.GraphQLResponse graphQLResponse = objectMapper.treeToValue(
+                        rootNode,
                         ShopifyData.GraphQLResponse.class
                 );
 
+                if (graphQLResponse.data() == null || graphQLResponse.data().products() == null) {
+                    throw new RuntimeException("Shopify response products connection is null: " + response.body());
+                }
+
                 ShopifyData.ProductConnection connection = graphQLResponse.data().products();
                 for (ShopifyData.ProductNode pNode : connection.nodes()) {
+                    incomingProductIds.add(pNode.id());
                     String imageUrl = pNode.featuredImage() != null ? pNode.featuredImage().url() : null;
 
                     Product product = new Product(
@@ -218,6 +234,13 @@ public class InventoryService {
                 cursor = connection.pageInfo() != null ? connection.pageInfo().endCursor() : null;
             }
 
+            List<Product> existingProducts = productRepository.findAll();
+            for (Product existing : existingProducts) {
+                if (!incomingProductIds.contains(existing.getId())) {
+                    productRepository.delete(existing);
+                }
+            }
+
             productRepository.saveAll(productsToSave);
             return productsToSave.size();
 
@@ -252,9 +275,15 @@ public class InventoryService {
         }
 
         if (!levelFound) {
+            String resolvedLocationName = inventoryLevelRepository.findAll().stream()
+                    .filter(il -> il.getLocationId().endsWith(locationIdStr))
+                    .map(InventoryLevel::getLocationName)
+                    .findFirst()
+                    .orElse("Location " + locationIdStr);
+
             InventoryLevel newLevel = new InventoryLevel(
                     "gid://shopify/Location/" + locationIdStr,
-                    "Location " + locationIdStr,
+                    resolvedLocationName,
                     newAvailable
             );
             variant.addInventoryLevel(newLevel);
@@ -362,27 +391,30 @@ public class InventoryService {
     }
 
     @Transactional
-    public ProductResponse.VariantResponse updateVariantThreshold(String variantId, Integer threshold) {
+    public ProductResponse.VariantResponse updateVariantThreshold(String variantId, Integer threshold, String locationId) {
         ProductVariant variant = productVariantRepository.findById(variantId)
                 .orElseThrow(() -> new RuntimeException("Variant not found: " + variantId));
 
         variant.setAlertThreshold(threshold);
         productVariantRepository.save(variant);
 
-        int totalStock = 0;
+        boolean isLocationSpecific = locationId != null && !locationId.equalsIgnoreCase("ALL");
+        int scopedStock = 0;
         for (InventoryLevel level : variant.getInventoryLevels()) {
-            totalStock += level.getAvailableQuantity();
+            if (!isLocationSpecific || level.getLocationId().equals(locationId)) {
+                scopedStock += level.getAvailableQuantity();
+            }
         }
 
         int effectiveThreshold = threshold != null ? threshold : getLowInventoryThreshold();
-        boolean isLow = totalStock < effectiveThreshold;
+        boolean isLow = scopedStock < effectiveThreshold;
 
         return new ProductResponse.VariantResponse(
                 variant.getId(),
                 variant.getTitle(),
                 variant.getSku(),
                 variant.getPrice(),
-                totalStock,
+                scopedStock,
                 variant.getAlertThreshold(),
                 isLow
         );
@@ -391,15 +423,27 @@ public class InventoryService {
     private ProductResponse mapToProductResponse(Product product, String locationId, int globalThreshold) {
         int totalStock = 0;
         boolean hasAnyLowVariant = false;
+        boolean isLocationSpecific = locationId != null && !locationId.equalsIgnoreCase("ALL");
         List<ProductResponse.VariantResponse> variantResponses = new ArrayList<>();
 
         for (ProductVariant variant : product.getVariants()) {
+            boolean isTrackedAtLocation = false;
             int variantStock = 0;
+
             for (InventoryLevel level : variant.getInventoryLevels()) {
-                if (locationId == null || locationId.equalsIgnoreCase("ALL") || level.getLocationId().equals(locationId)) {
+                if (!isLocationSpecific) {
                     variantStock += level.getAvailableQuantity();
+                    isTrackedAtLocation = true;
+                } else if (level.getLocationId().equals(locationId)) {
+                    variantStock += level.getAvailableQuantity();
+                    isTrackedAtLocation = true;
                 }
             }
+
+            if (isLocationSpecific && !isTrackedAtLocation) {
+                continue;
+            }
+
             totalStock += variantStock;
 
             int effectiveVariantThreshold = variant.getAlertThreshold() != null
@@ -422,7 +466,7 @@ public class InventoryService {
             ));
         }
 
-        boolean isOverallLow = totalStock < globalThreshold || hasAnyLowVariant;
+        boolean isOverallLow = !variantResponses.isEmpty() && (totalStock < globalThreshold || hasAnyLowVariant);
 
         return new ProductResponse(
                 product.getId(),

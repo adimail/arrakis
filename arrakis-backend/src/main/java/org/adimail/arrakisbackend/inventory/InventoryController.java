@@ -60,7 +60,8 @@ public class InventoryController {
     ) {
         ProductResponse.VariantResponse response = inventoryService.updateVariantThreshold(
                 request.variantId(),
-                request.threshold()
+                request.threshold(),
+                request.locationId()
         );
         return ResponseEntity.ok(response);
     }

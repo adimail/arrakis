@@ -14,7 +14,7 @@ import java.util.List;
 public interface ProductRepository extends JpaRepository<Product, String> {
 
     @Query(
-            value = "SELECT p.id FROM products p ORDER BY p.title ASC",
+            value = "SELECT p.id FROM products p ORDER BY p.title ASC, p.id ASC",
             countQuery = "SELECT COUNT(p.id) FROM products p",
             nativeQuery = true
     )
@@ -28,7 +28,7 @@ public interface ProductRepository extends JpaRepository<Product, String> {
             JOIN inventory_levels il ON il.variant_id = pv.id
             WHERE il.location_id = :locationId
             GROUP BY p.id, p.title
-            ORDER BY p.title ASC
+            ORDER BY p.title ASC, p.id ASC
         """,
             countQuery = """
             SELECT COUNT(DISTINCT p.id)
@@ -54,10 +54,10 @@ public interface ProductRepository extends JpaRepository<Product, String> {
             GROUP BY p.id, p.title
             HAVING SUM(COALESCE(vs.variant_stock, 0)) < :threshold
                 OR MAX(CASE WHEN COALESCE(vs.variant_stock, 0) < COALESCE(pv.alert_threshold, :threshold) THEN 1 ELSE 0 END) = 1
-            ORDER BY p.title ASC
+            ORDER BY p.title ASC, p.id ASC
         """,
             countQuery = """
-            SELECT COUNT(DISTINCT sub.id) FROM (
+            SELECT COUNT(*) FROM (
                 SELECT p.id
                 FROM products p
                 JOIN product_variants pv ON pv.product_id = p.id
@@ -80,31 +80,21 @@ public interface ProductRepository extends JpaRepository<Product, String> {
             SELECT p.id
             FROM products p
             JOIN product_variants pv ON pv.product_id = p.id
-            LEFT JOIN (
-                SELECT variant_id, SUM(COALESCE(available_quantity, 0)) AS variant_stock
-                FROM inventory_levels
-                WHERE location_id = :locationId
-                GROUP BY variant_id
-            ) vs ON vs.variant_id = pv.id
+            JOIN inventory_levels il ON il.variant_id = pv.id AND il.location_id = :locationId
             GROUP BY p.id, p.title
-            HAVING SUM(COALESCE(vs.variant_stock, 0)) < :threshold
-                OR MAX(CASE WHEN COALESCE(vs.variant_stock, 0) < COALESCE(pv.alert_threshold, :threshold) THEN 1 ELSE 0 END) = 1
-            ORDER BY p.title ASC
+            HAVING SUM(il.available_quantity) < :threshold
+                OR MAX(CASE WHEN il.available_quantity < COALESCE(pv.alert_threshold, :threshold) THEN 1 ELSE 0 END) = 1
+            ORDER BY p.title ASC, p.id ASC
         """,
             countQuery = """
-            SELECT COUNT(DISTINCT sub.id) FROM (
+            SELECT COUNT(*) FROM (
                 SELECT p.id
                 FROM products p
                 JOIN product_variants pv ON pv.product_id = p.id
-                LEFT JOIN (
-                    SELECT variant_id, SUM(COALESCE(available_quantity, 0)) AS variant_stock
-                    FROM inventory_levels
-                    WHERE location_id = :locationId
-                    GROUP BY variant_id
-                ) vs ON vs.variant_id = pv.id
+                JOIN inventory_levels il ON il.variant_id = pv.id AND il.location_id = :locationId
                 GROUP BY p.id
-                HAVING SUM(COALESCE(vs.variant_stock, 0)) < :threshold
-                    OR MAX(CASE WHEN COALESCE(vs.variant_stock, 0) < COALESCE(pv.alert_threshold, :threshold) THEN 1 ELSE 0 END) = 1
+                HAVING SUM(il.available_quantity) < :threshold
+                    OR MAX(CASE WHEN il.available_quantity < COALESCE(pv.alert_threshold, :threshold) THEN 1 ELSE 0 END) = 1
             ) sub
         """,
             nativeQuery = true
@@ -113,7 +103,7 @@ public interface ProductRepository extends JpaRepository<Product, String> {
 
     @Query(
             value = """
-            SELECT COUNT(DISTINCT sub.id) FROM (
+            SELECT COUNT(*) FROM (
                 SELECT p.id
                 FROM products p
                 JOIN product_variants pv ON pv.product_id = p.id
@@ -133,19 +123,14 @@ public interface ProductRepository extends JpaRepository<Product, String> {
 
     @Query(
             value = """
-            SELECT COUNT(DISTINCT sub.id) FROM (
+            SELECT COUNT(*) FROM (
                 SELECT p.id
                 FROM products p
                 JOIN product_variants pv ON pv.product_id = p.id
-                LEFT JOIN (
-                    SELECT variant_id, SUM(COALESCE(available_quantity, 0)) AS variant_stock
-                    FROM inventory_levels
-                    WHERE location_id = :locationId
-                    GROUP BY variant_id
-                ) vs ON vs.variant_id = pv.id
+                JOIN inventory_levels il ON il.variant_id = pv.id AND il.location_id = :locationId
                 GROUP BY p.id
-                HAVING SUM(COALESCE(vs.variant_stock, 0)) < :threshold
-                    OR MAX(CASE WHEN COALESCE(vs.variant_stock, 0) < COALESCE(pv.alert_threshold, :threshold) THEN 1 ELSE 0 END) = 1
+                HAVING SUM(il.available_quantity) < :threshold
+                    OR MAX(CASE WHEN il.available_quantity < COALESCE(pv.alert_threshold, :threshold) THEN 1 ELSE 0 END) = 1
             ) sub
         """,
             nativeQuery = true

@@ -204,6 +204,7 @@ export interface components {
             variantId?: string;
             /** Format: int32 */
             threshold?: number;
+            locationId?: string;
         };
         VariantResponse: {
             id?: string;
@@ -249,12 +250,12 @@ export interface components {
             totalElements?: number;
             /** Format: int32 */
             totalPages?: number;
-            sort?: components["schemas"]["SortObject"];
-            pageable?: components["schemas"]["PageableObject"];
             first?: boolean;
             last?: boolean;
             /** Format: int32 */
             numberOfElements?: number;
+            sort?: components["schemas"]["SortObject"];
+            pageable?: components["schemas"]["PageableObject"];
             /** Format: int32 */
             size?: number;
             content?: components["schemas"]["ProductResponse"][];

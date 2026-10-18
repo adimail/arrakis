@@ -89,14 +89,22 @@ export async function fetchCustomThresholdVariants(): Promise<CustomThresholdVar
 
 export async function updateVariantThreshold(
   variantId: string,
-  threshold: number | null
+  threshold: number | null,
+  locationId?: string
 ): Promise<VariantResponse> {
-  const { data, error } = await api.PUT('/api/variants/threshold', {
-    body: {
+  const response = await fetch('/api/variants/threshold', {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
       variantId,
       threshold: threshold ?? undefined,
-    },
+      locationId: locationId || 'ALL',
+    }),
   })
-  if (error) throw error
-  return data
+  if (!response.ok) {
+    throw new Error('Failed to update variant threshold')
+  }
+  return response.json()
 }

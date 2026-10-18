@@ -37,7 +37,7 @@ export const VariantOverridesTable: React.FC = () => {
 
   const variantMutation = useMutation({
     mutationFn: ({ variantId, threshold }: { variantId: string; threshold: number | null }) =>
-      updateVariantThreshold(variantId, threshold),
+      updateVariantThreshold(variantId, threshold, 'ALL'),
     onSuccess: (_, variables) => {
       message.success('Variant threshold updated')
       setDirtyDrafts((prev) => {

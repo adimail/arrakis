@@ -22,6 +22,7 @@ export const VariantModal: React.FC = () => {
   const setSelectedProduct = useInventoryStore((state) => state.setSelectedProduct)
   const visible = useInventoryStore((state) => state.isVariantModalOpen)
   const setIsVariantModalOpen = useInventoryStore((state) => state.setIsVariantModalOpen)
+  const locationId = useInventoryStore((state) => state.locationId)
 
   const { data: settings } = useQuery({
     queryKey: ['settings'],
@@ -34,7 +35,7 @@ export const VariantModal: React.FC = () => {
 
   const variantMutation = useMutation({
     mutationFn: ({ variantId, threshold }: { variantId: string; threshold: number | null }) =>
-      updateVariantThreshold(variantId, threshold),
+      updateVariantThreshold(variantId, threshold, locationId),
     onSuccess: (updatedVariant, variables) => {
       message.success('Threshold updated')
       setDirtyDrafts((prev) => {
