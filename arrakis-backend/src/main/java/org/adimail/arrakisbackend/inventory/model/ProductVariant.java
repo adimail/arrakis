@@ -2,14 +2,16 @@ package org.adimail.arrakisbackend.inventory.model;
 
 import jakarta.persistence.*;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 @Entity
 @Table(name = "product_variants")
 public class ProductVariant {
 
     @Id
-    private String id; // Shopify Variant GID: gid://shopify/ProductVariant/...
+    private String id;
 
     @Column(nullable = false)
     private String title;
@@ -22,7 +24,7 @@ public class ProductVariant {
     private Product product;
 
     @OneToMany(mappedBy = "variant", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<InventoryLevel> inventoryLevels = new ArrayList<>();
+    private Set<InventoryLevel> inventoryLevels = new LinkedHashSet<>();
 
     public ProductVariant() {}
 
@@ -38,7 +40,6 @@ public class ProductVariant {
         level.setVariant(this);
     }
 
-    // Getters and Setters
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
 
@@ -54,6 +55,6 @@ public class ProductVariant {
     public Product getProduct() { return product; }
     public void setProduct(Product product) { this.product = product; }
 
-    public List<InventoryLevel> getInventoryLevels() { return inventoryLevels; }
-    public void setInventoryLevels(List<InventoryLevel> inventoryLevels) { this.inventoryLevels = inventoryLevels; }
+    public Set<InventoryLevel> getInventoryLevels() { return inventoryLevels; }
+    public void setInventoryLevels(Set<InventoryLevel> inventoryLevels) { this.inventoryLevels = inventoryLevels; }
 }

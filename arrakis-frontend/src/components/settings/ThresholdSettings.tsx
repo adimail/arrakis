@@ -1,18 +1,54 @@
-import React, { useState } from 'react'
-import { Button, InputNumber, Typography, message } from 'antd'
+import React, { useEffect, useState } from 'react'
+import { Button, InputNumber, Typography, message, Spin } from 'antd'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { fetchSettings, updateSettings } from '../../api/inventory'
 import { useInventoryStore } from '../../store/useInventoryStore'
 
 const { Title, Text } = Typography
 
 export const ThresholdSettings: React.FC = () => {
-  const threshold = useInventoryStore((state) => state.threshold)
-  const setThreshold = useInventoryStore((state) => state.setThreshold)
+  const queryClient = useQueryClient()
+  const setStoreThreshold = useInventoryStore((state) => state.setThreshold)
+  const setActiveTab = useInventoryStore((state) => state.setActiveTab)
 
-  const [val, setVal] = useState<number>(threshold)
+  const { data, isLoading } = useQuery({
+    queryKey: ['settings'],
+    queryFn: fetchSettings,
+  })
+
+  const [val, setVal] = useState<number>(10)
+
+  useEffect(() => {
+    if (data?.threshold !== undefined) {
+      setVal(data.threshold)
+      setStoreThreshold(data.threshold)
+    }
+  }, [data, setStoreThreshold])
+
+  const mutation = useMutation({
+    mutationFn: (newThreshold: number) => updateSettings(newThreshold),
+    onSuccess: (updated) => {
+      setStoreThreshold(updated.threshold)
+      queryClient.invalidateQueries({ queryKey: ['settings'] })
+      queryClient.invalidateQueries({ queryKey: ['products'] })
+      message.success('Threshold setting saved successfully')
+      setActiveTab('home')
+    },
+    onError: () => {
+      message.error('Failed to save settings')
+    },
+  })
 
   const handleSave = () => {
-    setThreshold(val)
-    message.success('Threshold setting saved successfully')
+    mutation.mutate(val)
+  }
+
+  if (isLoading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', marginTop: 80 }}>
+        <Spin size="large" />
+      </div>
+    )
   }
 
   return (
@@ -39,6 +75,7 @@ export const ThresholdSettings: React.FC = () => {
 
       <Button
         type="primary"
+        loading={mutation.isPending}
         onClick={handleSave}
         style={{
           backgroundColor: '#008060',

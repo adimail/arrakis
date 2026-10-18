@@ -2,6 +2,7 @@ package org.adimail.arrakisbackend.inventory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.adimail.arrakisbackend.config.ShopifyClientConfig;
+import org.adimail.arrakisbackend.inventory.dto.LocationProjection;
 import org.adimail.arrakisbackend.inventory.dto.ProductResponse;
 import org.adimail.arrakisbackend.inventory.dto.ShopifyData;
 import org.adimail.arrakisbackend.inventory.model.InventoryLevel;
@@ -17,22 +18,24 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 @Service
 public class InventoryService {
 
     private final ProductRepository productRepository;
+    private final InventoryLevelRepository inventoryLevelRepository;
     private final ShopifyClientConfig shopifyConfig;
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
 
     public InventoryService(ProductRepository productRepository,
+                            InventoryLevelRepository inventoryLevelRepository,
                             ShopifyClientConfig shopifyConfig,
                             HttpClient httpClient,
                             ObjectMapper objectMapper) {
         this.productRepository = productRepository;
+        this.inventoryLevelRepository = inventoryLevelRepository;
         this.shopifyConfig = shopifyConfig;
         this.httpClient = httpClient;
         this.objectMapper = objectMapper;
@@ -118,21 +121,11 @@ public class InventoryService {
     }
 
     @Transactional(readOnly = true)
-    public List<java.util.Map<String, String>> getDistinctLocations() {
-        List<Product> products = productRepository.findAll();
-        java.util.Map<String, String> locationMap = new java.util.HashMap<>();
-
-        for (Product product : products) {
-            for (ProductVariant variant : product.getVariants()) {
-                for (InventoryLevel level : variant.getInventoryLevels()) {
-                    locationMap.putIfAbsent(level.getLocationId(), level.getLocationName());
-                }
-            }
-        }
-
-        List<java.util.Map<String, String>> result = new java.util.ArrayList<>();
-        for (java.util.Map.Entry<String, String> entry : locationMap.entrySet()) {
-            result.add(java.util.Map.of("id", entry.getKey(), "name", entry.getValue()));
+    public List<Map<String, String>> getDistinctLocations() {
+        List<LocationProjection> projections = inventoryLevelRepository.findDistinctLocations();
+        List<Map<String, String>> result = new ArrayList<>();
+        for (LocationProjection p : projections) {
+            result.add(Map.of("id", p.getLocationId(), "name", p.getLocationName()));
         }
         return result;
     }
@@ -140,13 +133,32 @@ public class InventoryService {
     @Transactional(readOnly = true)
     public Page<ProductResponse> getProducts(int page, int size, String locationId, int threshold) {
         PageRequest pageRequest = PageRequest.of(page, size);
-        Page<Product> productPage = productRepository.findAll(pageRequest);
 
-        List<ProductResponse> responseList = productPage.getContent().stream()
-                .map(product -> mapToProductResponse(product, locationId, threshold))
-                .toList();
+        boolean isAllLocations = locationId == null || locationId.equalsIgnoreCase("ALL");
+        Page<String> pagedIds = isAllLocations
+                ? productRepository.findAllProductIds(pageRequest)
+                : productRepository.findAllProductIdsByLocation(locationId, pageRequest);
 
-        return new PageImpl<>(responseList, pageRequest, productPage.getTotalElements());
+        if (pagedIds.isEmpty()) {
+            return new PageImpl<>(Collections.emptyList(), pageRequest, 0);
+        }
+
+        List<Product> products = productRepository.findProductsWithDetailsByIds(pagedIds.getContent());
+
+        Map<String, Product> productMap = new HashMap<>();
+        for (Product product : products) {
+            productMap.put(product.getId(), product);
+        }
+
+        List<ProductResponse> content = new ArrayList<>();
+        for (String id : pagedIds.getContent()) {
+            Product product = productMap.get(id);
+            if (product != null) {
+                content.add(mapToProductResponse(product, locationId, threshold));
+            }
+        }
+
+        return new PageImpl<>(content, pageRequest, pagedIds.getTotalElements());
     }
 
     private ProductResponse mapToProductResponse(Product product, String locationId, int threshold) {

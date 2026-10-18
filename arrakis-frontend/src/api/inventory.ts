@@ -29,3 +29,19 @@ export async function syncInventory(): Promise<{ message: string; syncedProducts
   if (!res.ok) throw new Error('Sync failed')
   return res.json()
 }
+
+export async function fetchSettings(): Promise<{ threshold: number }> {
+  const res = await fetch(`${BASE_URL}/settings`)
+  if (!res.ok) throw new Error('Failed to load settings')
+  return res.json()
+}
+
+export async function updateSettings(threshold: number): Promise<{ threshold: number }> {
+  const res = await fetch(`${BASE_URL}/settings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ threshold }),
+  })
+  if (!res.ok) throw new Error('Failed to save settings')
+  return res.json()
+}

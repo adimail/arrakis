@@ -37,14 +37,8 @@ export const useInventoryStore = create<InventoryState>((set) => ({
   locationId: 'ALL',
   setLocationId: (locationId) => set({ locationId, page: 0 }),
 
-  threshold: (() => {
-    const saved = localStorage.getItem('low_inventory_threshold')
-    return saved ? parseInt(saved, 10) : 10
-  })(),
-  setThreshold: (threshold) => {
-    localStorage.setItem('low_inventory_threshold', threshold.toString())
-    set({ threshold, activeTab: 'home' })
-  },
+  threshold: 10,
+  setThreshold: (threshold) => set({ threshold }),
 
   lastSynced: localStorage.getItem('last_synced_at'),
   setLastSynced: (lastSynced) => {
