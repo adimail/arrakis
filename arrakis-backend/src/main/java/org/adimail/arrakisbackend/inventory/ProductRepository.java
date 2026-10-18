@@ -14,14 +14,7 @@ import java.util.List;
 public interface ProductRepository extends JpaRepository<Product, String> {
 
     @Query(
-            value = """
-            SELECT p.id
-            FROM products p
-            LEFT JOIN product_variants pv ON pv.product_id = p.id
-            LEFT JOIN inventory_levels il ON il.variant_id = pv.id
-            GROUP BY p.id
-            ORDER BY p.title ASC
-        """,
+            value = "SELECT p.id FROM products p ORDER BY p.title ASC",
             countQuery = "SELECT COUNT(p.id) FROM products p",
             nativeQuery = true
     )
@@ -31,12 +24,19 @@ public interface ProductRepository extends JpaRepository<Product, String> {
             value = """
             SELECT p.id
             FROM products p
-            LEFT JOIN product_variants pv ON pv.product_id = p.id
-            LEFT JOIN inventory_levels il ON il.variant_id = pv.id AND il.location_id = :locationId
-            GROUP BY p.id
+            JOIN product_variants pv ON pv.product_id = p.id
+            JOIN inventory_levels il ON il.variant_id = pv.id
+            WHERE il.location_id = :locationId
+            GROUP BY p.id, p.title
             ORDER BY p.title ASC
         """,
-            countQuery = "SELECT COUNT(p.id) FROM products p",
+            countQuery = """
+            SELECT COUNT(DISTINCT p.id)
+            FROM products p
+            JOIN product_variants pv ON pv.product_id = p.id
+            JOIN inventory_levels il ON il.variant_id = pv.id
+            WHERE il.location_id = :locationId
+        """,
             nativeQuery = true
     )
     Page<String> findAllProductIdsByLocation(@Param("locationId") String locationId, Pageable pageable);
@@ -51,7 +51,7 @@ public interface ProductRepository extends JpaRepository<Product, String> {
                 FROM inventory_levels
                 GROUP BY variant_id
             ) vs ON vs.variant_id = pv.id
-            GROUP BY p.id
+            GROUP BY p.id, p.title
             HAVING SUM(COALESCE(vs.variant_stock, 0)) < :threshold
                 OR MAX(CASE WHEN COALESCE(vs.variant_stock, 0) < COALESCE(pv.alert_threshold, :threshold) THEN 1 ELSE 0 END) = 1
             ORDER BY p.title ASC
@@ -86,7 +86,7 @@ public interface ProductRepository extends JpaRepository<Product, String> {
                 WHERE location_id = :locationId
                 GROUP BY variant_id
             ) vs ON vs.variant_id = pv.id
-            GROUP BY p.id
+            GROUP BY p.id, p.title
             HAVING SUM(COALESCE(vs.variant_stock, 0)) < :threshold
                 OR MAX(CASE WHEN COALESCE(vs.variant_stock, 0) < COALESCE(pv.alert_threshold, :threshold) THEN 1 ELSE 0 END) = 1
             ORDER BY p.title ASC

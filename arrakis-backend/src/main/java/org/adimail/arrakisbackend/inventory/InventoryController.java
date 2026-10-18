@@ -1,6 +1,7 @@
 package org.adimail.arrakisbackend.inventory;
 
-import org.adimail.arrakisbackend.inventory.dto.*;
+import org.adimail.arrakisbackend.inventory.dto.InventoryDtos.*;
+import org.adimail.arrakisbackend.inventory.dto.ProductResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

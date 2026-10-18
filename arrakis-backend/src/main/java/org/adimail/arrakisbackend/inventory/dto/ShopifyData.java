@@ -8,7 +8,9 @@ public class ShopifyData {
 
     public record DataContainer(ProductConnection products) {}
 
-    public record ProductConnection(List<ProductNode> nodes) {}
+    public record PageInfo(boolean hasNextPage, String endCursor) {}
+
+    public record ProductConnection(PageInfo pageInfo, List<ProductNode> nodes) {}
 
     public record ImageNode(String url) {}
 

@@ -3,11 +3,12 @@ package org.adimail.arrakisbackend.inventory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.adimail.arrakisbackend.config.ShopifyClientConfig;
 import org.adimail.arrakisbackend.inventory.dto.*;
+import org.adimail.arrakisbackend.inventory.dto.InventoryDtos.*;
 import org.adimail.arrakisbackend.inventory.model.InventoryLevel;
 import org.adimail.arrakisbackend.inventory.model.Product;
 import org.adimail.arrakisbackend.inventory.model.ProductVariant;
 import org.adimail.arrakisbackend.inventory.model.StoreSetting;
-import org.adimail.arrakisbackend.notification.SseNotificationService;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -26,11 +27,55 @@ public class InventoryService {
     private static final String DEFAULT_THRESHOLD_KEY = "low_inventory_threshold";
     private static final String DEFAULT_THRESHOLD_VALUE = "10";
 
+    private static final String GRAPHQL_PAGINATED_QUERY = """
+        query($cursor: String) {
+          products(first: 50, after: $cursor) {
+            pageInfo {
+              hasNextPage
+              endCursor
+            }
+            nodes {
+              id
+              title
+              vendor
+              productType
+              status
+              featuredImage {
+                url
+              }
+              variants(first: 50) {
+                nodes {
+                  id
+                  title
+                  sku
+                  price
+                  inventoryItem {
+                    id
+                    inventoryLevels(first: 10) {
+                      nodes {
+                        location {
+                          id
+                          name
+                        }
+                        quantities(names: ["available"]) {
+                          name
+                          quantity
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        """;
+
     private final ProductRepository productRepository;
     private final ProductVariantRepository productVariantRepository;
     private final InventoryLevelRepository inventoryLevelRepository;
     private final StoreSettingRepository storeSettingRepository;
-    private final SseNotificationService sseNotificationService;
+    private final ApplicationEventPublisher eventPublisher;
     private final ShopifyClientConfig shopifyConfig;
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
@@ -39,7 +84,7 @@ public class InventoryService {
                             ProductVariantRepository productVariantRepository,
                             InventoryLevelRepository inventoryLevelRepository,
                             StoreSettingRepository storeSettingRepository,
-                            SseNotificationService sseNotificationService,
+                            ApplicationEventPublisher eventPublisher,
                             ShopifyClientConfig shopifyConfig,
                             HttpClient httpClient,
                             ObjectMapper objectMapper) {
@@ -47,17 +92,11 @@ public class InventoryService {
         this.productVariantRepository = productVariantRepository;
         this.inventoryLevelRepository = inventoryLevelRepository;
         this.storeSettingRepository = storeSettingRepository;
-        this.sseNotificationService = sseNotificationService;
+        this.eventPublisher = eventPublisher;
         this.shopifyConfig = shopifyConfig;
         this.httpClient = httpClient;
         this.objectMapper = objectMapper;
     }
-
-    private static final String GRAPHQL_QUERY = """
-        {
-          "query": "query { products(first: 50) { nodes { id title vendor productType status featuredImage { url } variants(first: 50) { nodes { id title sku price inventoryItem { id inventoryLevels(first: 10) { nodes { location { id name } quantities(names: [\\"available\\"]) { name quantity } } } } } } } } }"
-        }
-        """;
 
     private String extractNumericId(String gidOrNumber) {
         if (gidOrNumber == null) {
@@ -87,24 +126,6 @@ public class InventoryService {
     @Transactional
     public int syncFromShopify() {
         try {
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(shopifyConfig.getGraphQLEndpoint()))
-                    .header("Content-Type", "application/json")
-                    .header("X-Shopify-Access-Token", shopifyConfig.getAccessToken())
-                    .POST(HttpRequest.BodyPublishers.ofString(GRAPHQL_QUERY))
-                    .build();
-
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-
-            if (response.statusCode() != 200) {
-                throw new RuntimeException("Shopify API error: " + response.statusCode() + " - " + response.body());
-            }
-
-            ShopifyData.GraphQLResponse graphQLResponse = objectMapper.readValue(
-                    response.body(),
-                    ShopifyData.GraphQLResponse.class
-            );
-
             Map<String, Integer> existingThresholds = new HashMap<>();
             List<ProductVariant> allExistingVariants = productVariantRepository.findAll();
             for (ProductVariant v : allExistingVariants) {
@@ -114,55 +135,87 @@ public class InventoryService {
             }
 
             List<Product> productsToSave = new ArrayList<>();
+            String cursor = null;
+            boolean hasNextPage = true;
 
-            for (ShopifyData.ProductNode pNode : graphQLResponse.data().products().nodes()) {
-                String imageUrl = pNode.featuredImage() != null ? pNode.featuredImage().url() : null;
+            while (hasNextPage) {
+                Map<String, Object> requestPayload = new HashMap<>();
+                requestPayload.put("query", GRAPHQL_PAGINATED_QUERY);
+                Map<String, Object> variables = new HashMap<>();
+                variables.put("cursor", cursor);
+                requestPayload.put("variables", variables);
 
-                Product product = new Product(
-                        pNode.id(),
-                        pNode.title(),
-                        pNode.vendor(),
-                        pNode.productType(),
-                        pNode.status(),
-                        imageUrl
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(URI.create(shopifyConfig.getGraphQLEndpoint()))
+                        .header("Content-Type", "application/json")
+                        .header("X-Shopify-Access-Token", shopifyConfig.getAccessToken())
+                        .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(requestPayload)))
+                        .build();
+
+                HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+                if (response.statusCode() != 200) {
+                    throw new RuntimeException("Shopify API error: " + response.statusCode() + " - " + response.body());
+                }
+
+                ShopifyData.GraphQLResponse graphQLResponse = objectMapper.readValue(
+                        response.body(),
+                        ShopifyData.GraphQLResponse.class
                 );
 
-                if (pNode.variants() != null) {
-                    for (ShopifyData.VariantNode vNode : pNode.variants().nodes()) {
-                        ProductVariant variant = new ProductVariant(
-                                vNode.id(),
-                                vNode.title(),
-                                vNode.sku(),
-                                vNode.price()
-                        );
+                ShopifyData.ProductConnection connection = graphQLResponse.data().products();
+                for (ShopifyData.ProductNode pNode : connection.nodes()) {
+                    String imageUrl = pNode.featuredImage() != null ? pNode.featuredImage().url() : null;
 
-                        if (vNode.inventoryItem() != null) {
-                            variant.setInventoryItemId(extractNumericId(vNode.inventoryItem().id()));
-                        }
+                    Product product = new Product(
+                            pNode.id(),
+                            pNode.title(),
+                            pNode.vendor(),
+                            pNode.productType(),
+                            pNode.status(),
+                            imageUrl
+                    );
 
-                        if (existingThresholds.containsKey(vNode.id())) {
-                            variant.setAlertThreshold(existingThresholds.get(vNode.id()));
-                        }
+                    if (pNode.variants() != null) {
+                        for (ShopifyData.VariantNode vNode : pNode.variants().nodes()) {
+                            ProductVariant variant = new ProductVariant(
+                                    vNode.id(),
+                                    vNode.title(),
+                                    vNode.sku(),
+                                    vNode.price()
+                            );
 
-                        if (vNode.inventoryItem() != null && vNode.inventoryItem().inventoryLevels() != null) {
-                            for (ShopifyData.InventoryLevelNode lNode : vNode.inventoryItem().inventoryLevels().nodes()) {
-                                int available = 0;
-                                if (lNode.quantities() != null && !lNode.quantities().isEmpty()) {
-                                    available = lNode.quantities().get(0).quantity();
-                                }
-
-                                InventoryLevel level = new InventoryLevel(
-                                        lNode.location().id(),
-                                        lNode.location().name(),
-                                        available
-                                );
-                                variant.addInventoryLevel(level);
+                            if (vNode.inventoryItem() != null) {
+                                variant.setInventoryItemId(extractNumericId(vNode.inventoryItem().id()));
                             }
+
+                            if (existingThresholds.containsKey(vNode.id())) {
+                                variant.setAlertThreshold(existingThresholds.get(vNode.id()));
+                            }
+
+                            if (vNode.inventoryItem() != null && vNode.inventoryItem().inventoryLevels() != null) {
+                                for (ShopifyData.InventoryLevelNode lNode : vNode.inventoryItem().inventoryLevels().nodes()) {
+                                    int available = 0;
+                                    if (lNode.quantities() != null && !lNode.quantities().isEmpty()) {
+                                        available = lNode.quantities().getFirst().quantity();
+                                    }
+
+                                    InventoryLevel level = new InventoryLevel(
+                                            lNode.location().id(),
+                                            lNode.location().name(),
+                                            available
+                                    );
+                                    variant.addInventoryLevel(level);
+                                }
+                            }
+                            product.addVariant(variant);
                         }
-                        product.addVariant(variant);
                     }
+                    productsToSave.add(product);
                 }
-                productsToSave.add(product);
+
+                hasNextPage = connection.pageInfo() != null && connection.pageInfo().hasNextPage();
+                cursor = connection.pageInfo() != null ? connection.pageInfo().endCursor() : null;
             }
 
             productRepository.saveAll(productsToSave);
@@ -228,7 +281,7 @@ public class InventoryService {
                 isLow
         );
 
-        sseNotificationService.broadcast(event);
+        eventPublisher.publishEvent(event);
     }
 
     @Transactional(readOnly = true)

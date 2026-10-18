@@ -1,6 +1,6 @@
 package org.adimail.arrakisbackend.inventory;
 
-import org.adimail.arrakisbackend.inventory.dto.LocationProjection;
+import org.adimail.arrakisbackend.inventory.dto.InventoryDtos.LocationProjection;
 import org.adimail.arrakisbackend.inventory.model.InventoryLevel;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;

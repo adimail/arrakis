@@ -68,6 +68,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["healthCheck"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/actuator/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["healthCheck_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/healthcheck": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["healthCheck_2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/variants/custom-thresholds": {
         parameters: {
             query?: never;
@@ -201,12 +249,12 @@ export interface components {
             totalElements?: number;
             /** Format: int32 */
             totalPages?: number;
+            sort?: components["schemas"]["SortObject"];
+            pageable?: components["schemas"]["PageableObject"];
             first?: boolean;
             last?: boolean;
             /** Format: int32 */
             numberOfElements?: number;
-            sort?: components["schemas"]["SortObject"];
-            pageable?: components["schemas"]["PageableObject"];
             /** Format: int32 */
             size?: number;
             content?: components["schemas"]["ProductResponse"][];
@@ -371,6 +419,72 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["SyncResponse"];
+                };
+            };
+        };
+    };
+    healthCheck: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        [key: string]: string;
+                    };
+                };
+            };
+        };
+    };
+    healthCheck_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        [key: string]: string;
+                    };
+                };
+            };
+        };
+    };
+    healthCheck_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        [key: string]: string;
+                    };
                 };
             };
         };

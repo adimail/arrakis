@@ -331,6 +331,13 @@ export const ProductTable: React.FC = () => {
           total: productPage?.totalElements || 0,
           onChange: (p) => setPage(p),
           showSizeChanger: false,
+          showTotal: (total, range) => (
+            <span style={{ fontSize: 13, color: '#6d7175', marginRight: 8 }}>
+              {total > 0
+                ? `Showing ${range[0]}-${range[1]} of ${total} items`
+                : '0 items'}
+            </span>
+          ),
         }}
         bordered={false}
         className="card-container"

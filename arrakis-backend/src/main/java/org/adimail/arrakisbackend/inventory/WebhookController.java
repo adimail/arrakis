@@ -1,6 +1,6 @@
 package org.adimail.arrakisbackend.inventory;
 
-import org.adimail.arrakisbackend.inventory.dto.InventoryWebhookPayload;
+import org.adimail.arrakisbackend.inventory.dto.InventoryDtos.InventoryWebhookPayload;
 import org.adimail.arrakisbackend.notification.SseNotificationService;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
